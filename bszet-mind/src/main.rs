@@ -1,7 +1,6 @@
 use std::string::ToString;
 use std::time::Duration;
 
-use axum::response::IntoResponse;
 use clap::Parser;
 use reqwest::Url;
 use time::{Date, OffsetDateTime};
@@ -36,7 +35,7 @@ async fn main() -> anyhow::Result<()> {
   let args = Args::parse();
   tracing_subscriber::fmt::init();
 
-  let mut davinci = Davinci::new(
+  let davinci = Davinci::new(
     args.entrypoint,
     args.username,
     args.password,
@@ -68,12 +67,11 @@ async fn main() -> anyhow::Result<()> {
 
     await_next_execution().await;
   }
-  Ok(())
 }
 
 
 async fn await_next_execution() {
-  let mut now = OffsetDateTime::now_utc();
+  let now = OffsetDateTime::now_utc();
   let sleep_until = Instant::now() + Duration::from_secs((60 * (15 - now.minute() % 15) - now.second()) as u64);
   tokio::time::sleep_until(sleep_until).await;
 }

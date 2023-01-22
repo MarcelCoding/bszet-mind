@@ -17,7 +17,6 @@ use tracing::info;
 use crate::timetable::{Lesson, Subject};
 use crate::timetable::igd21::IGD21;
 
-const OVERVIEW_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new("V_DC_(\\d{3}).html").unwrap());
 const DATE_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new("\\S+ (\\d{2})\\.(\\d{2})\\.(\\d{4})").unwrap());
 const REPLACEMENT_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new("\\+(.*) \\((.+)\\)").unwrap());
 
@@ -97,7 +96,7 @@ impl Davinci {
               }
               Change::Other { value, subject, teacher, place } => {
                 lesson.notice = Some(match &row.notice {
-                  None => format!("Other: {}", value.to_string()),
+                  None => format!("Other: {}", value),
                   Some(notice) => format!("Other: {} - {}", value, notice),
                 });
               }
@@ -203,7 +202,7 @@ impl Davinci {
       let row = if let Some(last) = rows.last() {
         Row {
           date,
-          class: class.unwrap_or(last.class.clone()),
+          class: class.unwrap_or_else(|| last.class.clone()),
           lesson: lesson.unwrap_or(last.lesson),
           change,
           notice,
