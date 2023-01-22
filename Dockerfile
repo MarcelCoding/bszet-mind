@@ -27,7 +27,7 @@ COPY . .
 RUN cargo build --release --bin bszet-mind
 
 # We do not need the Rust toolchain to run the binary!
-FROM gcr.io/distroless/cc AS runtime
+FROM debian:slim AS runtime
 
 COPY --from=builder /etc/passwd /etc/passwd
 COPY --from=builder /etc/group /etc/group
