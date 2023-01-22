@@ -9,7 +9,7 @@ pub struct Telegram {
 
 #[derive(Serialize)]
 struct SendMessage {
-  chat_id: i32,
+  chat_id: i64,
   text: String,
   parse_mode: String,
 }
@@ -25,7 +25,7 @@ impl Telegram {
     })
   }
 
-  pub async fn send(&self, chat_id: i32, text: String) -> anyhow::Result<()> {
+  pub async fn send(&self, chat_id: i64, text: String) -> anyhow::Result<()> {
     self
       .client
       .post(self.base.join("sendMessage")?)

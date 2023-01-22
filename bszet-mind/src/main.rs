@@ -3,8 +3,8 @@ use std::time::Duration;
 
 use clap::Parser;
 use reqwest::Url;
-use time::Month::January;
 use time::{Date, OffsetDateTime};
+use time::Month::January;
 use tokio::time::Instant;
 use tracing::{error, info};
 
@@ -19,10 +19,10 @@ mod ascii;
 #[command(author, version, about, long_about)]
 struct Args {
   #[arg(
-    long,
-    short,
-    env = "BSZET_MIND_ENTRYPOINT",
-    default_value = "https://geschuetzt.bszet.de/s-lk-vw/Vertretungsplaene/V_PlanBGy/V_DC_001.html"
+  long,
+  short,
+  env = "BSZET_MIND_ENTRYPOINT",
+  default_value = "https://geschuetzt.bszet.de/s-lk-vw/Vertretungsplaene/V_PlanBGy/V_DC_001.html"
   )]
   entrypoint: Url,
   #[arg(long, short, env = "BSZET_MIND_USERNAME")]
@@ -32,7 +32,7 @@ struct Args {
   #[arg(long, short, env = "BSZET_MIND_TELEGRAM_TOKEN")]
   telegram_token: String,
   #[arg(long, short, env = "BSZET_MIND_CHAT_IDS")]
-  chat_ids: Vec<i32>,
+  chat_ids: Vec<i64>,
 }
 
 #[tokio::main]
