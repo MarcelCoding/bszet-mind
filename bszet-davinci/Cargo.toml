@@ -1,15 +1,17 @@
 [package]
 name = "bszet-davinci"
-version = "0.1.0"
+version = "0.0.0-git"
 edition = "2021"
 
 [dependencies]
 reqwest = { version = "0.11", default-features = false, features = ["rustls-tls-webpki-roots"] }
+time = { version = "0.3", default-features = false, features = ["parsing", "std"] }
+tokio = { version = "1.24", default-features = false, features = ["sync"] }
+once_cell = "1.17"
+tracing = "0.1"
 select = "0.6"
 anyhow = "1.0"
-time = { version = "0.3", default-features = false, features = ["parsing", "std"] }
 regex = "1.7"
-once_cell = "1.17"
 
 [dev-dependencies]
 tokio = { version = "1.24", default-features = false, features = ["macros", "test-util"] }

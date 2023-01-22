@@ -11,6 +11,8 @@ use select::document::Document;
 use select::predicate::Name;
 use time::{Date, Month, OffsetDateTime};
 use time::format_description::well_known::Rfc2822;
+use tokio::sync::{RwLock, RwLockReadGuard};
+use tracing::info;
 
 use crate::timetable::{Lesson, Subject};
 use crate::timetable::igd21::IGD21;
@@ -28,7 +30,7 @@ pub struct Davinci {
   username: String,
   password: String,
   entrypoint: Url,
-  data: Option<Data>,
+  data: RwLock<Option<Data>>,
 }
 
 pub struct Data {
@@ -44,17 +46,18 @@ impl Davinci {
       username,
       password,
       entrypoint,
-      data: None,
+      data: RwLock::new(None),
     }
   }
-  pub fn data(&self) -> Option<&Data> {
-    self.data.as_ref()
+
+  pub async fn data(&self) -> RwLockReadGuard<'_, Option<Data>> {
+    self.data.read().await
   }
 
-  pub fn apply_changes(&self, date: Date) -> Vec<Lesson> {
+  pub async fn get_applied_timetable(&self, date: Date) -> Vec<Lesson> {
     let mut day = IGD21.get(&date.weekday()).unwrap().clone();
 
-    if let Some(data) = &self.data {
+    if let Some(data) = self.data.read().await.as_ref() {
       for row in &data.rows {
         if row.date != date || !row.class.contains(&"IGD21".to_string()) {
           continue;
@@ -111,7 +114,7 @@ impl Davinci {
     day
   }
 
-  pub async fn update(&mut self) -> anyhow::Result<bool> {
+  pub async fn update(&self) -> anyhow::Result<bool> {
     let mut url = self.entrypoint.clone();
     let mut rows = Vec::new();
 
@@ -124,15 +127,17 @@ impl Davinci {
 
     let now = OffsetDateTime::now_utc();
 
+    let mut data = self.data.write().await;
+
     // check if there is a difference
-    if let Some(data) = self.data.as_mut() {
+    if let Some(data) = data.as_mut() {
       if !rows.iter().zip(&data.rows).any(|(a, b)| a != b) {
         data.last_checked = now;
         return Ok(false);
       }
     }
 
-    self.data = Some(Data {
+    *data = Some(Data {
       last_checked: now,
       last_modified: now,
       rows,
@@ -152,7 +157,8 @@ impl Davinci {
       None => return Err(anyhow!("last-modified http header is required")),
       Some(value) => OffsetDateTime::parse(value.to_str()?, &Rfc2822)?
     };
-    println!("{} {}", url, last_modified);
+
+    info!("Crawled {}, last modified {}", url, last_modified);
 
     let text = response.text().await?;
     let document = Document::from(text.as_str());

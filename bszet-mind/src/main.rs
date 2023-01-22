@@ -1,14 +1,16 @@
 use std::string::ToString;
 use std::time::Duration;
 
+use axum::response::IntoResponse;
 use clap::Parser;
 use reqwest::Url;
 use time::{Date, OffsetDateTime};
 use time::Month::January;
+use tokio::time::Instant;
+use tracing::{error, info};
 
 use bszet_davinci::Davinci;
 use bszet_notify::telegram::Telegram;
-use tokio_cron_scheduler::JobScheduler;
 
 use crate::ascii::table;
 
@@ -32,6 +34,7 @@ struct Args {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
   let args = Args::parse();
+  tracing_subscriber::fmt::init();
 
   let mut davinci = Davinci::new(
     args.entrypoint,
@@ -40,30 +43,37 @@ async fn main() -> anyhow::Result<()> {
   );
 
   loop {
-    if !davinci.update().await? {
-      println!("keine updates");
-      tokio::time::sleep(Duration::from_secs(5)).await;
-      continue;
-    }
+    match davinci.update().await {
+      Err(err) => error!("Error executing davinci update schedule: {}", err),
+      Ok(false) => info!("Nothing changed"),
+      Ok(true) => {
+        info!("Detected changes, sending notifications...");
 
-    println!("updates, telegram");
+        let table = table(davinci.get_applied_timetable(Date::from_calendar_date(2023, January, 20)?).await);
 
-    let table = table(davinci.apply_changes(Date::from_calendar_date(2023, January, 20)?));
+        let telegram = Telegram::new(&args.telegram_token)?;
 
-    let telegram = Telegram::new(&args.telegram_token)?;
-
-    for id in &args.chat_ids {
-      match davinci.data() {
-        None => telegram.send(*id, "Es konnte kein Vertretungsplan geladen werden.".to_string()).await?,
-        Some(data) => {
-          let age = OffsetDateTime::now_utc() - data.last_checked;
-          let text = format!("Der Vertretungsplan wurde zuletzt vor {} aktualisiert.\n```\n{}```", age, table);
-          telegram.send(*id, text).await?;
+        for id in &args.chat_ids {
+          match davinci.data().await.as_ref() {
+            None => telegram.send(*id, "Es konnte kein Vertretungsplan geladen werden.".to_string()).await?,
+            Some(data) => {
+              let age = OffsetDateTime::now_utc() - data.last_checked;
+              let text = format!("Der Vertretungsplan wurde zuletzt vor {} aktualisiert.\n```\n{}```", age, table);
+              telegram.send(*id, text).await?;
+            }
+          }
         }
       }
     }
-    tokio::time::sleep(Duration::from_secs(5)).await;
-  }
 
+    await_next_execution().await;
+  }
   Ok(())
+}
+
+
+async fn await_next_execution() {
+  let mut now = OffsetDateTime::now_utc();
+  let sleep_until = Instant::now() + Duration::from_secs((60 * (15 - now.minute() % 15) - now.second()) as u64);
+  tokio::time::sleep_until(sleep_until).await;
 }
