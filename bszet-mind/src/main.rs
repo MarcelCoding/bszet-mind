@@ -4,8 +4,7 @@ use std::time::Duration;
 
 use clap::Parser;
 use reqwest::Url;
-use time::Month::January;
-use time::{Date, OffsetDateTime};
+use time::OffsetDateTime;
 use tokio::time::Instant;
 use tracing::{error, info};
 
@@ -20,10 +19,10 @@ mod ascii;
 #[command(author, version, about, long_about)]
 struct Args {
   #[arg(
-    long,
-    short,
-    env = "BSZET_MIND_ENTRYPOINT",
-    default_value = "https://geschuetzt.bszet.de/s-lk-vw/Vertretungsplaene/V_PlanBGy/V_DC_001.html"
+  long,
+  short,
+  env = "BSZET_MIND_ENTRYPOINT",
+  default_value = "https://geschuetzt.bszet.de/s-lk-vw/Vertretungsplaene/V_PlanBGy/V_DC_001.html"
   )]
   entrypoint: Url,
   #[arg(long, short, env = "BSZET_MIND_USERNAME")]
@@ -56,9 +55,15 @@ async fn main() -> anyhow::Result<()> {
       Ok(true) => {
         info!("Detected changes, sending notifications...");
 
+        let mut now = OffsetDateTime::now_utc();
+
+        if now.hour() >= 15 {
+          now += time::Duration::days(1);
+        }
+
         let table = table(
           davinci
-            .get_applied_timetable(Date::from_calendar_date(2023, January, 20)?)
+            .get_applied_timetable(now.date())
             .await,
         );
 
@@ -75,10 +80,10 @@ async fn main() -> anyhow::Result<()> {
                 .await?
             }
             Some(data) => {
-              let age = OffsetDateTime::now_utc() - data.last_checked;
+              // let age = OffsetDateTime::now_utc() - data.last_checked;
               let text = format!(
-                "Der Vertretungsplan wurde zuletzt vor {} aktualisiert.\n```\n{}```",
-                age, table
+                "Vertretungsplan für {} den {}. {} {}.\n```\n{}```",
+                now.weekday(), now.day(), now.month(), now.year(), table
               );
               telegram.send(*id, text).await?;
             }
