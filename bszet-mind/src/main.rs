@@ -31,20 +31,14 @@ struct Args {
   password: String,
   #[arg(long, short, env = "BSZET_MIND_TELEGRAM_TOKEN")]
   telegram_token: String,
-  #[arg(long, short, env = "BSZET_MIND_CHAT_IDS")]
-  chat_ids: String,
+  #[arg(long, short, env = "BSZET_MIND_CHAT_IDS", value_delimiter = ',')]
+  chat_ids: Vec<i64>,
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
   let args = Args::parse();
   tracing_subscriber::fmt::init();
-
-  let chat_ids = args
-    .chat_ids
-    .split(',')
-    .map(|i| i64::from_str(i).expect("invalid str for i64"))
-    .collect::<Vec<i64>>();
 
   let davinci = Davinci::new(args.entrypoint, args.username, args.password);
 
@@ -69,7 +63,7 @@ async fn main() -> anyhow::Result<()> {
 
         let telegram = Telegram::new(&args.telegram_token)?;
 
-        for id in &chat_ids {
+        for id in &args.chat_ids {
           match davinci.data().await.as_ref() {
             None => {
               telegram
