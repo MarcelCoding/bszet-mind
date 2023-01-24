@@ -2,7 +2,7 @@ use crate::Davinci;
 
 #[tokio::test]
 async fn test_load() -> anyhow::Result<()> {
-  let mut davinci = Davinci::new(
+  let davinci = Davinci::new(
     "https://geschuetzt.bszet.de/s-lk-vw/Vertretungsplaene/V_PlanBGy/V_DC_001.html"
       .parse()
       .unwrap(),

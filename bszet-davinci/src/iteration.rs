@@ -5,7 +5,7 @@ use time::{Date, Duration, Month};
 pub(crate) fn get_iteration(date: Date) -> Option<u8> {
   let iterations = HashMap::from([
     (
-      Date::from_calendar_date(2021, Month::September, 06).unwrap(),
+      Date::from_calendar_date(2021, Month::September, 6).unwrap(),
       1u8,
     ),
     (
@@ -21,7 +21,7 @@ pub(crate) fn get_iteration(date: Date) -> Option<u8> {
       2,
     ),
     (
-      Date::from_calendar_date(2021, Month::October, 04).unwrap(),
+      Date::from_calendar_date(2021, Month::October, 4).unwrap(),
       1,
     ),
     (
@@ -29,11 +29,11 @@ pub(crate) fn get_iteration(date: Date) -> Option<u8> {
       2,
     ),
     (
-      Date::from_calendar_date(2021, Month::November, 01).unwrap(),
+      Date::from_calendar_date(2021, Month::November, 1).unwrap(),
       1,
     ),
     (
-      Date::from_calendar_date(2021, Month::November, 08).unwrap(),
+      Date::from_calendar_date(2021, Month::November, 8).unwrap(),
       2,
     ),
     (
@@ -49,7 +49,7 @@ pub(crate) fn get_iteration(date: Date) -> Option<u8> {
       1,
     ),
     (
-      Date::from_calendar_date(2021, Month::December, 06).unwrap(),
+      Date::from_calendar_date(2021, Month::December, 6).unwrap(),
       2,
     ),
     (
@@ -61,7 +61,7 @@ pub(crate) fn get_iteration(date: Date) -> Option<u8> {
       2,
     ),
     (
-      Date::from_calendar_date(2022, Month::January, 03).unwrap(),
+      Date::from_calendar_date(2022, Month::January, 3).unwrap(),
       1,
     ),
     (
@@ -81,30 +81,30 @@ pub(crate) fn get_iteration(date: Date) -> Option<u8> {
       1,
     ),
     (
-      Date::from_calendar_date(2022, Month::February, 07).unwrap(),
+      Date::from_calendar_date(2022, Month::February, 7).unwrap(),
       2,
     ),
     (
       Date::from_calendar_date(2022, Month::February, 28).unwrap(),
       1,
     ),
-    (Date::from_calendar_date(2022, Month::March, 07).unwrap(), 2),
+    (Date::from_calendar_date(2022, Month::March, 7).unwrap(), 2),
     (Date::from_calendar_date(2022, Month::March, 14).unwrap(), 1),
     (Date::from_calendar_date(2022, Month::March, 21).unwrap(), 2),
     (Date::from_calendar_date(2022, Month::March, 28).unwrap(), 1),
-    (Date::from_calendar_date(2022, Month::April, 04).unwrap(), 2),
+    (Date::from_calendar_date(2022, Month::April, 4).unwrap(), 2),
     (Date::from_calendar_date(2022, Month::April, 11).unwrap(), 1),
     (Date::from_calendar_date(2022, Month::April, 25).unwrap(), 2),
-    (Date::from_calendar_date(2022, Month::May, 02).unwrap(), 1),
-    (Date::from_calendar_date(2022, Month::May, 09).unwrap(), 2),
+    (Date::from_calendar_date(2022, Month::May, 2).unwrap(), 1),
+    (Date::from_calendar_date(2022, Month::May, 9).unwrap(), 2),
     (Date::from_calendar_date(2022, Month::May, 16).unwrap(), 1),
     (Date::from_calendar_date(2022, Month::May, 23).unwrap(), 2),
     (Date::from_calendar_date(2022, Month::May, 30).unwrap(), 1),
-    (Date::from_calendar_date(2022, Month::June, 07).unwrap(), 2),
+    (Date::from_calendar_date(2022, Month::June, 7).unwrap(), 2),
     (Date::from_calendar_date(2022, Month::June, 13).unwrap(), 1),
     (Date::from_calendar_date(2022, Month::June, 20).unwrap(), 2),
     (Date::from_calendar_date(2022, Month::June, 27).unwrap(), 1),
-    (Date::from_calendar_date(2022, Month::July, 04).unwrap(), 2),
+    (Date::from_calendar_date(2022, Month::July, 4).unwrap(), 2),
     (Date::from_calendar_date(2022, Month::July, 11).unwrap(), 1),
     // SUMMER HOLIDAYS 2022 🌴
     (
@@ -112,7 +112,7 @@ pub(crate) fn get_iteration(date: Date) -> Option<u8> {
       1,
     ),
     (
-      Date::from_calendar_date(2022, Month::September, 05).unwrap(),
+      Date::from_calendar_date(2022, Month::September, 5).unwrap(),
       2,
     ),
     (
@@ -128,7 +128,7 @@ pub(crate) fn get_iteration(date: Date) -> Option<u8> {
       1,
     ),
     (
-      Date::from_calendar_date(2022, Month::October, 03).unwrap(),
+      Date::from_calendar_date(2022, Month::October, 3).unwrap(),
       2,
     ),
     (
@@ -140,7 +140,7 @@ pub(crate) fn get_iteration(date: Date) -> Option<u8> {
       2,
     ),
     (
-      Date::from_calendar_date(2022, Month::November, 07).unwrap(),
+      Date::from_calendar_date(2022, Month::November, 7).unwrap(),
       1,
     ),
     (
@@ -156,7 +156,7 @@ pub(crate) fn get_iteration(date: Date) -> Option<u8> {
       2,
     ),
     (
-      Date::from_calendar_date(2022, Month::December, 05).unwrap(),
+      Date::from_calendar_date(2022, Month::December, 5).unwrap(),
       1,
     ),
     (
@@ -168,11 +168,11 @@ pub(crate) fn get_iteration(date: Date) -> Option<u8> {
       1,
     ),
     (
-      Date::from_calendar_date(2023, Month::January, 02).unwrap(),
+      Date::from_calendar_date(2023, Month::January, 2).unwrap(),
       2,
     ),
     (
-      Date::from_calendar_date(2023, Month::January, 09).unwrap(),
+      Date::from_calendar_date(2023, Month::January, 9).unwrap(),
       1,
     ),
     (
@@ -188,30 +188,29 @@ pub(crate) fn get_iteration(date: Date) -> Option<u8> {
       2,
     ),
     (
-      Date::from_calendar_date(2023, Month::February, 06).unwrap(),
-      1,
-    ),
+      Date::from_calendar_date(2023, Month::February, 6).unwrap(),
+      1,    ),
     (
       Date::from_calendar_date(2023, Month::February, 20).unwrap(),
       2,
     ),
-    (Date::from_calendar_date(2023, Month::March, 06).unwrap(), 1),
+    (Date::from_calendar_date(2023, Month::March, 6).unwrap(), 1),
     (Date::from_calendar_date(2023, Month::March, 13).unwrap(), 2),
     (Date::from_calendar_date(2023, Month::March, 20).unwrap(), 1),
     (Date::from_calendar_date(2023, Month::March, 27).unwrap(), 2),
-    (Date::from_calendar_date(2023, Month::April, 03).unwrap(), 1),
+    (Date::from_calendar_date(2023, Month::April, 3).unwrap(), 1),
     (Date::from_calendar_date(2023, Month::April, 17).unwrap(), 2),
     (Date::from_calendar_date(2023, Month::April, 24).unwrap(), 1),
-    (Date::from_calendar_date(2023, Month::May, 01).unwrap(), 2),
-    (Date::from_calendar_date(2023, Month::May, 08).unwrap(), 1),
+    (Date::from_calendar_date(2023, Month::May, 1).unwrap(), 2),
+    (Date::from_calendar_date(2023, Month::May, 8).unwrap(), 1),
     (Date::from_calendar_date(2023, Month::May, 15).unwrap(), 2),
     (Date::from_calendar_date(2023, Month::May, 22).unwrap(), 1),
     (Date::from_calendar_date(2023, Month::May, 29).unwrap(), 2),
-    (Date::from_calendar_date(2023, Month::June, 05).unwrap(), 1),
+    (Date::from_calendar_date(2023, Month::June, 5).unwrap(), 1),
     (Date::from_calendar_date(2023, Month::June, 12).unwrap(), 2),
     (Date::from_calendar_date(2023, Month::June, 19).unwrap(), 1),
     (Date::from_calendar_date(2023, Month::June, 26).unwrap(), 2),
-    (Date::from_calendar_date(2023, Month::July, 03).unwrap(), 1),
+    (Date::from_calendar_date(2023, Month::July, 3).unwrap(), 1),
   ]);
 
   for i in 0..7i64 {
