@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use clap::Parser;
 use reqwest::Url;
-use time::OffsetDateTime;
+use time::{OffsetDateTime, Weekday};
 use tokio::time::Instant;
 use tracing::{error, info};
 
@@ -52,6 +52,12 @@ async fn main() -> anyhow::Result<()> {
 
         if now.hour() >= 15 {
           now += time::Duration::days(1);
+        }
+
+        match now.weekday() {
+          Weekday::Saturday => now += time::Duration::days(2),
+          Weekday::Sunday => now += time::Duration::days(1),
+          _ => {}
         }
 
         let table = table(davinci.get_applied_timetable(now.date()).await);
