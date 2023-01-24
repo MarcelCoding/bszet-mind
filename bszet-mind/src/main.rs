@@ -39,60 +39,80 @@ async fn main() -> anyhow::Result<()> {
   let args = Args::parse();
   tracing_subscriber::fmt::init();
 
-  let davinci = Davinci::new(args.entrypoint, args.username, args.password);
+  let davinci = Davinci::new(
+    args.entrypoint.clone(),
+    args.username.clone(),
+    args.password.clone(),
+  );
 
   loop {
     match davinci.update().await {
       Err(err) => error!("Error executing davinci update schedule: {}", err),
-      Ok(false) => info!("Nothing changed"),
+      Ok(false) => {
+        let now = OffsetDateTime::now_utc();
+
+        if now.hour() == 15 && now.minute() <= 14 {
+          send_notifications(&args, &davinci).await?;
+          info!("Send 15 o'clock notification");
+        } else {
+          info!("Nothing changed");
+        }
+
+      }
       Ok(true) => {
         info!("Detected changes, sending notifications...");
 
-        let mut now = OffsetDateTime::now_utc();
-
-        if now.hour() >= 15 {
-          now += time::Duration::days(1);
-        }
-
-        match now.weekday() {
-          Weekday::Saturday => now += time::Duration::days(2),
-          Weekday::Sunday => now += time::Duration::days(1),
-          _ => {}
-        }
-
-        let table = table(davinci.get_applied_timetable(now.date()).await);
-
-        let telegram = Telegram::new(&args.telegram_token)?;
-
-        for id in &args.chat_ids {
-          match davinci.data().await.as_ref() {
-            None => {
-              telegram
-                .send(
-                  *id,
-                  "Es konnte kein Vertretungsplan geladen werden.".to_string(),
-                )
-                .await?
-            }
-            Some(data) => {
-              // let age = OffsetDateTime::now_utc() - data.last_checked;
-              let text = format!(
-                "Vertretungsplan für {} den {}. {} {}.\n```\n{}```",
-                now.weekday(),
-                now.day(),
-                now.month(),
-                now.year(),
-                table
-              );
-              telegram.send(*id, text).await?;
-            }
-          }
-        }
+        send_notifications(&args, &davinci).await?;
       }
     }
 
     await_next_execution().await;
   }
+}
+
+async fn send_notifications(args: &Args, davinci: &Davinci) -> anyhow::Result<()> {
+  let mut now = OffsetDateTime::now_utc();
+
+  if now.hour() >= 15 {
+    now += time::Duration::days(1);
+  }
+
+  match now.weekday() {
+    Weekday::Saturday => now += time::Duration::days(2),
+    Weekday::Sunday => now += time::Duration::days(1),
+    _ => {}
+  }
+
+  let table = table(davinci.get_applied_timetable(now.date()).await);
+
+  let telegram = Telegram::new(&args.telegram_token)?;
+
+  for id in &args.chat_ids {
+    match davinci.data().await.as_ref() {
+      None => {
+        telegram
+          .send(
+            *id,
+            "Es konnte kein Vertretungsplan geladen werden.".to_string(),
+          )
+          .await?
+      }
+      Some(data) => {
+        // let age = OffsetDateTime::now_utc() - data.last_checked;
+        let text = format!(
+          "Vertretungsplan für {} den {}. {} {}.\n```\n{}```",
+          now.weekday(),
+          now.day(),
+          now.month(),
+          now.year(),
+          table
+        );
+        telegram.send(*id, text).await?;
+      }
+    }
+  }
+
+  Ok(())
 }
 
 async fn await_next_execution() {

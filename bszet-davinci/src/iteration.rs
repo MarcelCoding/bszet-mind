@@ -189,7 +189,8 @@ pub(crate) fn get_iteration(date: Date) -> Option<u8> {
     ),
     (
       Date::from_calendar_date(2023, Month::February, 6).unwrap(),
-      1,    ),
+      1,
+    ),
     (
       Date::from_calendar_date(2023, Month::February, 20).unwrap(),
       2,
