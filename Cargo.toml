@@ -2,7 +2,7 @@
 members = [
     "bszet-davinci",
     "bszet-mind",
-    "bszet-notify"
+    "bszet-notify",
 ]
 
 [profile.release]

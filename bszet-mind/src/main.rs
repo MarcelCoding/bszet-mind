@@ -1,4 +1,3 @@
-use std::str::FromStr;
 use std::string::ToString;
 use std::time::Duration;
 
@@ -19,10 +18,10 @@ mod ascii;
 #[command(author, version, about, long_about)]
 struct Args {
   #[arg(
-  long,
-  short,
-  env = "BSZET_MIND_ENTRYPOINT",
-  default_value = "https://geschuetzt.bszet.de/s-lk-vw/Vertretungsplaene/V_PlanBGy/V_DC_001.html"
+    long,
+    short,
+    env = "BSZET_MIND_ENTRYPOINT",
+    default_value = "https://geschuetzt.bszet.de/s-lk-vw/Vertretungsplaene/V_PlanBGy/V_DC_001.html"
   )]
   entrypoint: Url,
   #[arg(long, short, env = "BSZET_MIND_USERNAME")]
@@ -55,11 +54,7 @@ async fn main() -> anyhow::Result<()> {
           now += time::Duration::days(1);
         }
 
-        let table = table(
-          davinci
-            .get_applied_timetable(now.date())
-            .await,
-        );
+        let table = table(davinci.get_applied_timetable(now.date()).await);
 
         let telegram = Telegram::new(&args.telegram_token)?;
 
@@ -77,7 +72,11 @@ async fn main() -> anyhow::Result<()> {
               // let age = OffsetDateTime::now_utc() - data.last_checked;
               let text = format!(
                 "Vertretungsplan für {} den {}. {} {}.\n```\n{}```",
-                now.weekday(), now.day(), now.month(), now.year(), table
+                now.weekday(),
+                now.day(),
+                now.month(),
+                now.year(),
+                table
               );
               telegram.send(*id, text).await?;
             }

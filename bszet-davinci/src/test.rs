@@ -1,4 +1,4 @@
-use crate::davinci::Davinci;
+use crate::Davinci;
 
 #[tokio::test]
 async fn test_load() -> anyhow::Result<()> {
@@ -15,7 +15,7 @@ async fn test_load() -> anyhow::Result<()> {
   // assert_eq!(true, davinci.update().await?);
   // assert_eq!(false, davinci.update().await?);
 
-  for row in &davinci.data().unwrap().rows {
+  for row in &davinci.data().await.as_ref().unwrap().rows {
     println!("- {:?}", row);
   }
 

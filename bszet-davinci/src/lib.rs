@@ -14,6 +14,7 @@ use time::{Date, Month, OffsetDateTime};
 use tokio::sync::{RwLock, RwLockReadGuard};
 use tracing::info;
 
+use crate::iteration::get_iteration;
 use crate::timetable::igd21::IGD21;
 use crate::timetable::{Lesson, Subject};
 
@@ -21,6 +22,7 @@ const DATE_REGEX: Lazy<Regex> =
   Lazy::new(|| Regex::new("\\S+ (\\d{2})\\.(\\d{2})\\.(\\d{4})").unwrap());
 const REPLACEMENT_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new("\\+(.*) \\((.+)\\)").unwrap());
 
+mod iteration;
 #[cfg(test)]
 mod test;
 pub mod timetable;
@@ -55,7 +57,24 @@ impl Davinci {
   }
 
   pub async fn get_applied_timetable(&self, date: Date) -> Vec<Lesson> {
-    let mut day = IGD21.get(&date.weekday()).unwrap().clone();
+    let iteration = match get_iteration(date) {
+      None => panic!("Unable to find iteration for date {}", date),
+      Some(iteration) => iteration,
+    };
+
+    let mut day = IGD21
+      .get(&date.weekday())
+      .unwrap()
+      .iter()
+      .filter_map(|lesson| {
+        if let Some(l_iteration) = lesson.iteration {
+          if l_iteration != iteration {
+            return None;
+          }
+        }
+        Some(lesson.clone())
+      })
+      .collect::<Vec<Lesson>>();
 
     if let Some(data) = self.data.read().await.as_ref() {
       for row in &data.rows {
