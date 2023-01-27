@@ -40,6 +40,7 @@ pub struct Data {
   pub last_checked: OffsetDateTime,
   pub last_modified: OffsetDateTime,
   pub rows: HashSet<Row>,
+  pub visited_urls: Vec<Url>,
 }
 
 impl Davinci {
@@ -175,13 +176,17 @@ impl Davinci {
   }
 
   pub async fn update(&self) -> anyhow::Result<bool> {
-    let mut url = self.entrypoint.clone();
+    let mut start_url = self.entrypoint.clone();
     let mut rows = Vec::new();
 
+    let mut visited_urls = Vec::new();
+
     loop {
-      match self.fetch(url, &mut rows).await? {
+      visited_urls.push(start_url.clone());
+
+      match self.fetch(start_url, &mut rows).await? {
         None => break,
-        Some(next) => url = next,
+        Some(next) => start_url = next,
       };
     }
 
@@ -207,6 +212,7 @@ impl Davinci {
       last_checked: now,
       last_modified: now,
       rows: hash,
+      visited_urls,
     });
 
     Ok(true)

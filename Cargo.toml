@@ -3,6 +3,7 @@ members = [
     "bszet-davinci",
     "bszet-mind",
     "bszet-notify",
+    "bszet-image",
 ]
 
 [profile.release]

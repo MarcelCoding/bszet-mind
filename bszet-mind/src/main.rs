@@ -1,3 +1,4 @@
+use std::fmt::Write;
 use std::time::Duration;
 
 use clap::Parser;
@@ -7,6 +8,7 @@ use tokio::time::Instant;
 use tracing::{error, info};
 
 use bszet_davinci::Davinci;
+use bszet_image::WebToImageConverter;
 use bszet_notify::telegram::Telegram;
 
 use crate::ascii::table;
@@ -31,6 +33,13 @@ struct Args {
   telegram_token: String,
   #[arg(long, short, env = "BSZET_MIND_CHAT_IDS", value_delimiter = ',')]
   chat_ids: Vec<i64>,
+  #[arg(
+    long,
+    short,
+    env = "BSZET_MIND_GECKO_DRIVER_URL",
+    default_value = "http://localhost:4444"
+  )]
+  gecko_driver_url: String,
 }
 
 #[tokio::main]
@@ -44,6 +53,8 @@ async fn main() -> anyhow::Result<()> {
     args.password.clone(),
   );
 
+  let web_to_image_converter = WebToImageConverter::new(args.gecko_driver_url.as_str()).await?;
+
   loop {
     match davinci.update().await {
       Err(err) => error!("Error executing davinci update schedule: {}", err),
@@ -51,7 +62,7 @@ async fn main() -> anyhow::Result<()> {
         let now = OffsetDateTime::now_utc();
 
         if now.hour() == 15 && now.minute() <= 14 {
-          send_notifications(&args, &davinci).await?;
+          send_notifications(&args, &davinci, &web_to_image_converter).await?;
           info!("Send 15 o'clock notification");
         } else {
           info!("Nothing changed");
@@ -60,7 +71,7 @@ async fn main() -> anyhow::Result<()> {
       Ok(true) => {
         info!("Detected changes, sending notifications...");
 
-        send_notifications(&args, &davinci).await?;
+        send_notifications(&args, &davinci, &web_to_image_converter).await?;
       }
     }
 
@@ -68,7 +79,11 @@ async fn main() -> anyhow::Result<()> {
   }
 }
 
-async fn send_notifications(args: &Args, davinci: &Davinci) -> anyhow::Result<()> {
+async fn send_notifications(
+  args: &Args,
+  davinci: &Davinci,
+  web_to_image_converter: &WebToImageConverter,
+) -> anyhow::Result<()> {
   let mut now = OffsetDateTime::now_utc();
 
   if now.hour() >= 15 {
@@ -86,6 +101,31 @@ async fn send_notifications(args: &Args, davinci: &Davinci) -> anyhow::Result<()
 
   let telegram = Telegram::new(&args.telegram_token)?;
 
+  let image_result = match davinci.data().await.as_ref() {
+    Some(data) => {
+      let mut images = Vec::new();
+
+      for url in &data.visited_urls {
+        let mut authenticated_url = url.clone();
+        authenticated_url
+          .set_username(args.username.as_str())
+          .unwrap();
+        authenticated_url
+          .set_password(Some(args.password.as_str()))
+          .unwrap();
+
+        images.push(
+          web_to_image_converter
+            .create_image(authenticated_url.as_str())
+            .await?,
+        )
+      }
+
+      Some(images)
+    }
+    None => None,
+  };
+
   for id in &args.chat_ids {
     // let age = OffsetDateTime::now_utc() - data.last_checked;
     let mut text = format!(
@@ -94,7 +134,7 @@ async fn send_notifications(args: &Args, davinci: &Davinci) -> anyhow::Result<()
       now.day(),
       now.month(),
       now.year(),
-      table
+      table,
     );
 
     if !unknown_changes.is_empty() {
@@ -104,7 +144,14 @@ async fn send_notifications(args: &Args, davinci: &Davinci) -> anyhow::Result<()
       }
     }
 
-    telegram.send(*id, text).await?;
+    match &image_result {
+      Some(images) => {
+        telegram.send_images(*id, text.as_str(), images).await?;
+      }
+      None => {
+        telegram.send_text(*id, text.as_str()).await?;
+      }
+    }
   }
 
   Ok(())
@@ -128,4 +175,3 @@ async fn await_next_execution() {
   );
   tokio::time::sleep_until(sleep_until).await;
 }
-use std::fmt::Write;

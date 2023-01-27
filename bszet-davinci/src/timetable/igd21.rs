@@ -50,7 +50,7 @@ pub const IGD21: Lazy<Timetable> = Lazy::new(|| {
     (
       Thursday,
       vec![
-        Lesson::new(1, None, Physics, "B106".to_string()),
+        Lesson::new(1, None, Physics, "B110".to_string()),
         Lesson::new(2, None, Lf8, "B5".to_string()), // group 1
         Lesson::new(2, None, Lf11, "B405".to_string()), // group 2
         Lesson::new(3, None, EnglishBasic, "B05".to_string()),
