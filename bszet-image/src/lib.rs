@@ -24,6 +24,11 @@ impl WebToImageConverter {
 
     Ok(image)
   }
+
+  pub async fn close(&self) -> anyhow::Result<()> {
+    self.client.close_window().await?;
+    Ok(())
+  }
 }
 
 #[cfg(test)]
@@ -43,7 +48,10 @@ mod test {
   async fn open_selenium() -> anyhow::Result<()> {
     let web_to_image_convert = WebToImageConverter::new("http://127.0.0.1:4444").await?;
 
-    let image = web_to_image_convert.create_image("https://www.youtube.com").await?;
+    let image = web_to_image_convert.create_image("https://www.google.com").await;
+    web_to_image_convert.close().await?;
+    let image = image?;
+
     write_to_file("cool_img.png", &image)?;
 
     Ok(())
