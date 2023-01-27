@@ -1,50 +1,37 @@
-use anyhow;
-use thirtyfour::common::capabilities::firefox::FirefoxPreferences;
-use thirtyfour::prelude::*;
+use fantoccini::{Client, ClientBuilder, Locator};
 
 pub struct WebToImageConverter {
-  driver: WebDriver,
+  client: Client,
 }
 
 impl WebToImageConverter {
   pub async fn new(gecko_driver_url: &str) -> anyhow::Result<Self> {
-    let mut caps = DesiredCapabilities::firefox();
-    caps.set_headless()?;
+    let client = ClientBuilder::rustls().connect(gecko_driver_url).await?;
 
-    Ok(Self {
-      driver: WebDriver::new(gecko_driver_url, caps).await?,
-    })
+    Ok(Self { client })
   }
 
   pub async fn create_image(&self, url: &str) -> anyhow::Result<Vec<u8>> {
-    self.driver.set_window_rect(0, 0, 2900, 5000).await?;
-    self.driver.goto(url).await?;
-    self
-      .driver
-      .execute("document.body.style.MozTransform = \"scale(400%)\"", vec![])
+    self.client.set_window_rect(0, 0, 800, 9000).await?;
+    self.client.goto(url).await?;
+
+    let image = self
+      .client
+      .find(Locator::Css("body"))
+      .await?
+      .screenshot()
       .await?;
 
-    Ok(
-      self
-        .driver
-        .find(By::ClassName("schedule-container"))
-        .await?
-        .screenshot_as_png()
-        .await?,
-    )
-  }
-
-  pub async fn quit(self) -> anyhow::Result<()> {
-    self.driver.quit().await?;
-    Ok(())
+    Ok(image)
   }
 }
 
 #[cfg(test)]
 mod test {
-  use crate::WebToImageConverter;
   use std::fs::File;
   use std::io::Write;
+
+  use crate::WebToImageConverter;
 
   fn write_to_file(file_name: &str, data: &Vec<u8>) -> std::io::Result<()> {
     let mut file = File::create(file_name)?;
@@ -54,22 +41,10 @@ mod test {
 
   #[tokio::test]
   async fn open_selenium() -> anyhow::Result<()> {
-    let web_to_image_convert = WebToImageConverter::new("http://localhost:4444").await?;
+    let web_to_image_convert = WebToImageConverter::new("http://127.0.0.1:4444").await?;
 
-    let image = match web_to_image_convert.create_image("https://google.com").await {
-      Ok(image) => image,
-      Err(err) => {
-        web_to_image_convert.quit().await?;
-        return Err(err);
-      },
-    };
-
-    if let Err(err) = write_to_file("cool_img.png", &image) {
-      web_to_image_convert.quit().await?;
-      return Err(err.into());
-    }
-
-    web_to_image_convert.quit().await?;
+    let image = web_to_image_convert.create_image("https://www.youtube.com").await?;
+    write_to_file("cool_img.png", &image)?;
 
     Ok(())
   }

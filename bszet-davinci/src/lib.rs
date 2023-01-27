@@ -60,7 +60,7 @@ impl Davinci {
 
   pub async fn get_applied_timetable(&self, date: Date) -> (Vec<Lesson>, Vec<Row>) {
     let iteration = match get_iteration(date) {
-      None => panic!("Unable to find iteration for date {}", date),
+      None => panic!("Unable to find iteration for date {date}"),
       Some(iteration) => iteration,
     };
 
@@ -89,7 +89,7 @@ impl Davinci {
           continue;
         }
 
-        println!("{:?}", row);
+        println!("{row:?}");
         let mut applyed = false;
 
         for mut lesson in &mut day {

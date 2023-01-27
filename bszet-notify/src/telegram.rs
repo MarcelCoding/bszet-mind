@@ -9,20 +9,9 @@ pub struct Telegram {
 }
 
 #[derive(Debug, Serialize)]
-#[serde(untagged)]
-enum ChatId {
-  Integer(i64),
-  String(String),
-}
-
-#[derive(Debug, Serialize)]
 enum ParseMode {
   #[serde(rename = "MarkdownV2")]
   Markdown,
-  #[serde(rename = "HTML")]
-  Html,
-  #[serde(rename = "Markdown")]
-  LegacyMarkdown,
 }
 
 #[derive(Debug, Serialize)]
@@ -37,7 +26,7 @@ struct InputMediaPhoto {
 
 #[derive(Debug, Serialize)]
 struct SendMediaGroupData {
-  chat_id: ChatId,
+  chat_id: i64,
   message_thread_id: Option<i64>,
   media: Vec<InputMediaPhoto>,
   disable_notification: Option<bool>,
@@ -48,7 +37,7 @@ struct SendMediaGroupData {
 
 #[derive(Debug, Serialize)]
 struct SendMessageData {
-  chat_id: ChatId,
+  chat_id: i64,
   message_thread_id: Option<i64>,
   text: String,
   parse_mode: Option<ParseMode>,
@@ -61,7 +50,7 @@ struct SendMessageData {
 
 impl Telegram {
   pub fn new(token: &str) -> anyhow::Result<Self> {
-    let raw = format!("https://api.telegram.org/bot{}/", token);
+    let raw = format!("https://api.telegram.org/bot{token}/");
     let base = Url::parse(&raw)?;
 
     Ok(Self {
@@ -76,10 +65,10 @@ impl Telegram {
       .post(self.base.join("sendMessage")?)
       .header(CONTENT_TYPE, HeaderValue::from_str("application/json")?)
       .body(serde_json::to_string(&SendMessageData {
-        chat_id: ChatId::Integer(chat_id),
+        chat_id,
         message_thread_id: None,
         text: text.to_string(),
-        parse_mode: Some(ParseMode::LegacyMarkdown),
+        parse_mode: Some(ParseMode::Markdown),
         disable_web_page_preview: None,
         disable_notification: None,
         protect_content: None,
@@ -103,7 +92,7 @@ impl Telegram {
     let mut media = Vec::new();
 
     for (index, image) in images.iter().enumerate() {
-      let file_name = format!("{}.png", index);
+      let file_name = format!("{index}.png");
       let field_name = format!("file{}", index + 1);
 
       form = form.part(
@@ -120,14 +109,14 @@ impl Telegram {
         } else {
           None
         },
-        parse_mode: Some(ParseMode::LegacyMarkdown),
+        parse_mode: Some(ParseMode::Markdown),
       })
     }
 
     form = form.part("chat_id", Part::text(chat_id.to_string()));
 
     let media_str = serde_json::to_string(&media)?;
-    println!("{}", media_str);
+    println!("{media_str}");
     form = form.part("media", Part::text(media_str).mime_str("application/json")?);
 
     let man = self

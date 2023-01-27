@@ -140,7 +140,7 @@ async fn send_notifications(
     if !unknown_changes.is_empty() {
       writeln!(text, "\n\nÄnderungen, die nicht angewendet werden konnten:").unwrap();
       for row in &unknown_changes {
-        writeln!(text, "- {:?}", row).unwrap();
+        writeln!(text, "- {row:?}").unwrap();
       }
     }
 
