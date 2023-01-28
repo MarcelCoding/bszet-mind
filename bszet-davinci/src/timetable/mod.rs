@@ -119,12 +119,12 @@ impl Display for Subject {
 }
 
 impl Lesson {
-  pub fn new(lesson: u8, iteration: Option<u8>, subject: Subject, place: String) -> Self {
+  pub fn new(lesson: u8, iteration: Option<u8>, subject: Subject, place: &str) -> Self {
     Self {
       lesson,
       iteration,
       subject,
-      place: Some(place),
+      place: Some(place.to_string()),
       notice: None,
     }
   }

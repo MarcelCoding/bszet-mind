@@ -3,7 +3,9 @@ use crate::{convert_lesson, Davinci};
 #[tokio::test]
 async fn test_load() -> anyhow::Result<()> {
   let mut davinci = Davinci::new(
-    "https://geschuetzt.bszet.de/s-lk-vw/Vertretungsplaene/V_PlanBGy/V_DC_001.html".parse().unwrap(),
+    "https://geschuetzt.bszet.de/s-lk-vw/Vertretungsplaene/V_PlanBGy/V_DC_001.html"
+      .parse()
+      .unwrap(),
     "".to_string(),
     "".to_string(),
   );

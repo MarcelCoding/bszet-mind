@@ -1,6 +1,7 @@
 extern crate core;
 
-use std::collections::HashSet;
+use std::collections::hash_map::Entry;
+use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 
 use anyhow::anyhow;
@@ -11,18 +12,22 @@ use reqwest::{Client, Url};
 use select::document::Document;
 use select::predicate::Name;
 use time::format_description::well_known::Rfc2822;
+use time::Month::January;
 use time::{Date, Month, OffsetDateTime};
 use tokio::sync::{RwLock, RwLockReadGuard};
 use tracing::info;
 
+use change::Change;
+
 use crate::iteration::get_iteration;
 use crate::timetable::igd21::IGD21;
-use crate::timetable::{Lesson, Subject};
+use crate::timetable::Lesson;
 
 const DATE_REGEX: Lazy<Regex> =
   Lazy::new(|| Regex::new("\\S+ (\\d{2})\\.(\\d{2})\\.(\\d{4})").unwrap());
 const REPLACEMENT_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new("\\+(.*) \\((.+)\\)").unwrap());
 
+mod change;
 mod iteration;
 #[cfg(test)]
 mod test;
@@ -89,84 +94,7 @@ impl Davinci {
           continue;
         }
 
-        println!("{row:?}");
-        let mut applyed = false;
-
-        for mut lesson in &mut day {
-          if lesson.lesson == row.lesson {
-            match &row.change {
-              Change::Cancel {
-                subject,
-                teacher,
-                place,
-              }
-              | Change::ClassIsMissing {
-                subject,
-                teacher,
-                place,
-              } => {
-                if &lesson.subject != subject {
-                  continue;
-                };
-                // sanity checks??
-                lesson.subject = Subject::Cancel(Box::new(lesson.subject.clone()));
-                lesson.notice = row.notice.clone();
-                applyed = true;
-              }
-              Change::PlaceChange {
-                subject,
-                teacher,
-                place,
-              } => {
-                if &lesson.subject != subject {
-                  continue;
-                };
-                // sanity checks?? place.from
-                lesson.place = Some(place.to.clone());
-                lesson.notice = row.notice.clone();
-                applyed = true;
-              }
-              Change::Addition {
-                subject,
-                teacher,
-                place,
-              } => {
-                day.push(Lesson {
-                  lesson: row.lesson,
-                  subject: subject.clone(),
-                  iteration: None,
-                  place: place.clone(),
-                  notice: row.notice.clone(),
-                });
-                applyed = true;
-              }
-              Change::Replacement {
-                subject,
-                teacher,
-                place,
-              } => {
-                if lesson.subject != subject.from {
-                  continue;
-                };
-                // sanity checks?? place.from
-
-                lesson.subject = subject.to.clone();
-                lesson.place = Some(place.to.clone());
-                lesson.notice = row.notice.clone();
-                applyed = true;
-              }
-              Change::Other {
-                value,
-                subject,
-                teacher,
-                place,
-              } => {}
-            }
-            break;
-          }
-        }
-
-        if !applyed {
+        if !row.change.apply(&mut day) {
           relevant_rows.push(row.clone());
         }
       }
@@ -178,17 +106,64 @@ impl Davinci {
   pub async fn update(&self) -> anyhow::Result<bool> {
     let mut start_url = self.entrypoint.clone();
     let mut rows = Vec::new();
+    let mut html_rows = Vec::new();
 
     let mut visited_urls = Vec::new();
 
     loop {
       visited_urls.push(start_url.clone());
 
-      match self.fetch(start_url, &mut rows).await? {
+      match self.fetch(start_url, &mut rows, &mut html_rows).await? {
         None => break,
         Some(next) => start_url = next,
       };
     }
+
+    let mut html_rows2: HashMap<Date, Vec<String>> = HashMap::new();
+
+    for (date, row) in html_rows {
+      let mut buf = String::new();
+      buf.push_str("<tr>");
+
+      for x in row {
+        buf.push_str("<td>");
+        buf.push_str(&x);
+        buf.push_str("</td>");
+      }
+      buf.push_str("</tr>");
+
+      match html_rows2.entry(date) {
+        Entry::Occupied(mut entry) => entry.get_mut().push(buf),
+        Entry::Vacant(entry) => {
+          entry.insert(Vec::from([buf]));
+        }
+      }
+    }
+
+    println!("{html_rows2:?}");
+
+    let base = include_str!("index.html");
+    let (date, html_rows) = (
+      Date::from_calendar_date(2023, January, 27)?,
+      html_rows2
+        .get(&Date::from_calendar_date(2023, January, 27)?)
+        .unwrap(),
+    );
+    println!(
+      "{}",
+      base
+        .replace(
+          "{{DATE}}",
+          &format!(
+            "{} den {:0<2}. {} {}",
+            date.weekday(),
+            date.day(),
+            date.month(),
+            date.year()
+          ),
+        )
+        .replace("{{TABLE}}", &html_rows.join(""))
+    );
 
     let now = OffsetDateTime::now_utc();
 
@@ -218,7 +193,12 @@ impl Davinci {
     Ok(true)
   }
 
-  async fn fetch(&self, url: Url, rows: &mut Vec<Row>) -> anyhow::Result<Option<Url>> {
+  async fn fetch(
+    &self,
+    url: Url,
+    rows: &mut Vec<Row>,
+    html_rows: &mut Vec<(Date, Vec<String>)>,
+  ) -> anyhow::Result<Option<Url>> {
     let response = self
       .client
       .get(url.clone())
@@ -257,6 +237,16 @@ impl Davinci {
     } else {
       return Err(anyhow!("Missing date in document"));
     };
+
+    for row in document.find(Name("tr")) {
+      let mut columns = Vec::with_capacity(7);
+
+      for data in row.find(Name("td")) {
+        columns.push(data.text().trim().to_string());
+      }
+
+      html_rows.push((date, columns));
+    }
 
     let table = if let Some(table) = document.find(Name("tbody")).next() {
       table
@@ -297,12 +287,6 @@ impl Davinci {
         ))
       };
 
-      let change = Change::new(
-        &columns[5],
-        columns[2].as_str(),
-        columns[3].to_string(),
-        &columns[4],
-      )?;
       let notice = if columns[6].is_empty() {
         None
       } else {
@@ -313,17 +297,27 @@ impl Davinci {
         Row {
           date,
           class: class.unwrap_or_else(|| last.class.clone()),
-          lesson: lesson.unwrap_or(last.lesson),
-          change,
-          notice,
+          change: Change::new(
+            lesson.unwrap_or(last.change.lesson()),
+            &columns[5],
+            columns[2].as_str(),
+            columns[3].to_string(),
+            &columns[4],
+            notice,
+          )?,
         }
       } else {
         Row {
           date,
           class: class.expect("First row, can not have missing fields."),
-          lesson: lesson.expect("First row, can not have missing fields."),
-          change,
-          notice,
+          change: Change::new(
+            lesson.expect("First row, can not have missing fields."),
+            &columns[5],
+            columns[2].as_str(),
+            columns[3].to_string(),
+            &columns[4],
+            notice,
+          )?,
         }
       };
 
@@ -349,152 +343,7 @@ impl Davinci {
 pub struct Row {
   pub date: Date,
   pub class: Vec<String>,
-  pub lesson: u8,
   pub change: Change,
-  pub notice: Option<String>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum Change {
-  Cancel {
-    subject: Subject,
-    teacher: Vec<String>,
-    place: String,
-  },
-  PlaceChange {
-    subject: Subject,
-    teacher: Vec<String>,
-    place: Replacement<String>,
-  },
-  Addition {
-    subject: Subject,
-    teacher: Vec<String>,
-    place: Option<String>,
-  },
-  Replacement {
-    subject: Replacement<Subject>,
-    teacher: Replacement<Vec<String>>,
-    place: Replacement<String>,
-  },
-  ClassIsMissing {
-    subject: Subject,
-    teacher: Vec<String>,
-    place: String,
-  },
-  Other {
-    value: String,
-    subject: Subject,
-    teacher: Vec<String>,
-    place: String,
-  },
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct Replacement<T> {
-  pub from: T,
-  pub to: T,
-}
-
-impl Change {
-  fn new(value: &str, subject: &str, place: String, teacher: &str) -> anyhow::Result<Self> {
-    Ok(match value {
-      "Fällt aus" => Self::Cancel {
-        subject: subject.into(),
-        place,
-        teacher: teacher
-          .split(',')
-          .map(|s| s.trim().to_string())
-          .collect::<Vec<String>>(),
-      },
-      "Raumänderung" => Self::PlaceChange {
-        subject: subject.into(),
-        place: place.as_str().try_into()?,
-        teacher: teacher
-          .split(',')
-          .map(|s| s.trim().to_string())
-          .collect::<Vec<String>>(),
-      },
-      "Zusatzunterricht" => Self::Addition {
-        subject: subject.into(),
-        place: if place.is_empty() { None } else { Some(place) },
-        teacher: teacher
-          .split(',')
-          .map(|s| s.trim().to_string())
-          .collect::<Vec<String>>(),
-      },
-      "Vertreten" => Self::Replacement {
-        subject: subject.try_into()?,
-        place: place.as_str().try_into()?,
-        teacher: teacher.try_into()?,
-      },
-      "Klasse fehlt" => Self::ClassIsMissing {
-        subject: subject.into(),
-        place,
-        teacher: teacher
-          .split(',')
-          .map(|s| s.trim().to_string())
-          .collect::<Vec<String>>(),
-      },
-      value => Self::Other {
-        value: value.to_string(),
-        subject: subject.into(),
-        place,
-        teacher: teacher
-          .split(',')
-          .map(|s| s.trim().to_string())
-          .collect::<Vec<String>>(),
-      },
-    })
-  }
-}
-
-impl TryFrom<&str> for Replacement<String> {
-  type Error = anyhow::Error;
-
-  fn try_from(value: &str) -> Result<Self, Self::Error> {
-    match REPLACEMENT_REGEX
-      .captures(value)
-      .map(|capture| (capture.get(1), capture.get(2)))
-    {
-      Some((Some(to), Some(from))) => Ok(Replacement {
-        from: from.as_str().to_string(),
-        to: to.as_str().to_string(),
-      }),
-      _ => Err(anyhow!("can not parse replacement {}", value)),
-    }
-  }
-}
-
-impl TryFrom<&str> for Replacement<Subject> {
-  type Error = anyhow::Error;
-
-  fn try_from(value: &str) -> Result<Self, Self::Error> {
-    let replacement: Replacement<String> = TryFrom::try_from(value)?;
-    Ok(Replacement {
-      from: Subject::from(replacement.from.as_str()),
-      to: Subject::from(replacement.to.as_str()),
-    })
-  }
-}
-
-impl TryFrom<&str> for Replacement<Vec<String>> {
-  type Error = anyhow::Error;
-
-  fn try_from(value: &str) -> Result<Self, Self::Error> {
-    let replacement: Replacement<String> = TryFrom::try_from(value)?;
-    Ok(Replacement {
-      from: replacement
-        .from
-        .split(',')
-        .map(|value| value.trim().to_string())
-        .collect::<Vec<String>>(),
-      to: replacement
-        .to
-        .split(',')
-        .map(|value| value.trim().to_string())
-        .collect::<Vec<String>>(),
-    })
-  }
 }
 
 /// Removes starting `(` and ending `)` characters.
