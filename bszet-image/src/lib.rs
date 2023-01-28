@@ -1,4 +1,5 @@
 use fantoccini::{Client, ClientBuilder, Locator};
+use hyper::client::HttpConnector;
 
 pub struct WebToImageConverter {
   client: Client,
@@ -6,7 +7,9 @@ pub struct WebToImageConverter {
 
 impl WebToImageConverter {
   pub async fn new(gecko_driver_url: &str) -> anyhow::Result<Self> {
-    let client = ClientBuilder::rustls().connect(gecko_driver_url).await?;
+    let client = ClientBuilder::new(HttpConnector::new())
+      .connect(gecko_driver_url)
+      .await?;
 
     Ok(Self { client })
   }
