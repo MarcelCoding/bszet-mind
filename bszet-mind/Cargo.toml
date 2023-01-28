@@ -6,13 +6,15 @@ edition = "2021"
 
 [dependencies]
 tokio = { version = "1.24", default-features = false, features = ["macros", "rt-multi-thread", "signal"] }
+axum = { version = "0.6", features = ["tokio", "query"], default-features = false }
+serde = { version = "1.0", features = ["derive"] }
 tracing-subscriber = { version = "0.3", features = ["fmt"] }
 reqwest = { version = "0.11", default-features = false }
 clap = { version = "4.1", features = ["derive", "env"] }
-axum = { version = "0.6", default-features = false }
+time = { version = "0.3", features = ["serde"] }
 bszet-davinci = { path = "../bszet-davinci" }
 bszet-notify = { path = "../bszet-notify" }
 bszet-image = { path = "../bszet-image" }
-anyhow = "1.0"
-time = "0.3"
+include_dir = "0.7"
 tracing = "0.1"
+anyhow = "1.0"

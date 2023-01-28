@@ -10,7 +10,7 @@ use crate::timetable::Subject::{
 use crate::timetable::{Lesson, Timetable};
 
 /// https://geschuetzt.bszet.de/s-lk-vw/Stundenplaene/DuBAS/IGD%2021.pdf
-pub const IGD21: Lazy<Timetable> = Lazy::new(|| {
+pub static IGD21: Lazy<Timetable> = Lazy::new(|| {
   HashMap::from([
     (
       Monday,

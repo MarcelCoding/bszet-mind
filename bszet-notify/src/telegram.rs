@@ -10,7 +10,6 @@ pub struct Telegram {
 
 #[derive(Debug, Serialize)]
 enum ParseMode {
-  #[serde(rename = "MarkdownV2")]
   Markdown,
 }
 
@@ -38,14 +37,8 @@ struct SendMediaGroupData {
 #[derive(Debug, Serialize)]
 struct SendMessageData {
   chat_id: i64,
-  message_thread_id: Option<i64>,
   text: String,
-  parse_mode: Option<ParseMode>,
-  disable_web_page_preview: Option<bool>,
-  disable_notification: Option<bool>,
-  protect_content: Option<bool>,
-  reply_to_message_id: Option<i64>,
-  allow_sending_without_reply: Option<bool>,
+  parse_mode: ParseMode,
 }
 
 impl Telegram {
@@ -60,21 +53,16 @@ impl Telegram {
   }
 
   pub async fn send_text(&self, chat_id: i64, text: &str) -> anyhow::Result<()> {
+    let data = SendMessageData {
+      chat_id,
+      text: text.to_string(),
+      parse_mode: ParseMode::Markdown,
+    };
+
     self
       .client
       .post(self.base.join("sendMessage")?)
-      .header(CONTENT_TYPE, HeaderValue::from_str("application/json")?)
-      .body(serde_json::to_string(&SendMessageData {
-        chat_id,
-        message_thread_id: None,
-        text: text.to_string(),
-        parse_mode: Some(ParseMode::Markdown),
-        disable_web_page_preview: None,
-        disable_notification: None,
-        protect_content: None,
-        reply_to_message_id: None,
-        allow_sending_without_reply: None,
-      })?)
+      .json(&data)
       .send()
       .await?
       .error_for_status()?;
@@ -116,19 +104,17 @@ impl Telegram {
     form = form.part("chat_id", Part::text(chat_id.to_string()));
 
     let media_str = serde_json::to_string(&media)?;
-    println!("{media_str}");
     form = form.part("media", Part::text(media_str).mime_str("application/json")?);
 
-    let man = self
+    self
       .client
       .post(self.base.join("sendMediaGroup")?)
       .header(CONTENT_TYPE, HeaderValue::from_str("application/json")?)
       .multipart(form)
       .send()
-      .await?;
-    // .error_for_status()?;
+      .await?
+      .error_for_status()?;
 
-    println!("{}", man.text().await?);
     Ok(())
   }
 }

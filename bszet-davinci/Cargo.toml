@@ -8,6 +8,7 @@ reqwest = { version = "0.11", default-features = false, features = ["rustls-tls-
 time = { version = "0.3", default-features = false, features = ["parsing", "std"] }
 tokio = { version = "1.24", default-features = false, features = ["sync"] }
 once_cell = "1.17"
+sailfish = "0.6"
 tracing = "0.1"
 select = "0.6"
 anyhow = "1.0"

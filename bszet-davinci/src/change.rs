@@ -146,7 +146,7 @@ impl Change {
           None => false,
           Some(lesson) => {
             // TODO: place, teachers
-            lesson.subject = subject.clone();
+            lesson.subject = Subject::Cancel(Box::new(subject.clone()));
             lesson.notice = notice.as_ref().map(|string| string.to_string());
             true
           }

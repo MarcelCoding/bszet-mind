@@ -12,7 +12,7 @@ impl WebToImageConverter {
   }
 
   pub async fn create_image(&self, url: &str) -> anyhow::Result<Vec<u8>> {
-    self.client.set_window_rect(0, 0, 800, 9000).await?;
+    self.client.set_window_rect(0, 0, 1500, 10_000).await?;
     self.client.goto(url).await?;
 
     let image = self

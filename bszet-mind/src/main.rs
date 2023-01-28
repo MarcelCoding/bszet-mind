@@ -1,9 +1,21 @@
+use std::collections::HashSet;
 use std::fmt::Write;
+use std::net::SocketAddr;
+use std::sync::Arc;
 use std::time::Duration;
 
-use clap::Parser;
+use axum::body::{Empty, Full};
+use axum::extract::{Path, Query};
+use axum::http::{header, HeaderValue, StatusCode};
+use axum::response::{Html, IntoResponse, Response};
+use axum::routing::get;
+use axum::{body, Extension, Router, Server};
+use clap::{arg, Parser};
+use include_dir::{include_dir, Dir};
 use reqwest::Url;
-use time::{OffsetDateTime, Weekday};
+use serde::Deserialize;
+use time::serde::format_description;
+use time::{Date, OffsetDateTime, Weekday};
 use tokio::time::Instant;
 use tracing::{error, info};
 
@@ -12,10 +24,13 @@ use bszet_image::WebToImageConverter;
 use bszet_notify::telegram::Telegram;
 
 use crate::ascii::table;
+use crate::AppError::PlanUnavailable;
 
 mod ascii;
 
-#[derive(Parser)]
+static STATIC_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/static");
+
+#[derive(Parser, Clone)]
 #[command(author, version, about, long_about)]
 struct Args {
   #[arg(
@@ -39,7 +54,21 @@ struct Args {
     env = "BSZET_MIND_GECKO_DRIVER_URL",
     default_value = "http://localhost:4444"
   )]
-  gecko_driver_url: String,
+  gecko_driver_url: Url,
+  #[arg(
+    long,
+    short,
+    env = "BSZET_MIND_LISTEN_ADDR",
+    default_value = "127.0.0.1:8080"
+  )]
+  listen_addr: SocketAddr,
+  #[arg(
+    long,
+    short,
+    env = "BSZET_MIND_INTERNAL_URL",
+    default_value = "http://127.0.0.1:8080"
+  )]
+  internal_url: Url,
 }
 
 #[tokio::main]
@@ -47,43 +76,115 @@ async fn main() -> anyhow::Result<()> {
   let args = Args::parse();
   tracing_subscriber::fmt::init();
 
-  let davinci = Davinci::new(
+  let davinci = Arc::new(Davinci::new(
     args.entrypoint.clone(),
     args.username.clone(),
     args.password.clone(),
-  );
+  ));
 
-  let web_to_image_converter = WebToImageConverter::new(args.gecko_driver_url.as_str()).await?;
+  let args2 = args.clone();
+  let davinci2 = davinci.clone();
+  let davinci3 = davinci.clone();
 
-  loop {
-    match davinci.update().await {
-      Err(err) => error!("Error executing davinci update schedule: {}", err),
-      Ok(false) => {
-        let now = OffsetDateTime::now_utc();
+  let router = Router::new()
+    .route("/davinci/:date", get(plan))
+    .route("/static/*path", get(static_path))
+    .layer(Extension(davinci3));
 
-        if now.hour() == 15 && now.minute() <= 14 {
-          send_notifications(&args, &davinci, &web_to_image_converter).await?;
-          info!("Send 15 o'clock notification");
-        } else {
-          info!("Nothing changed");
-        }
-      }
-      Ok(true) => {
-        info!("Detected changes, sending notifications...");
-
-        send_notifications(&args, &davinci, &web_to_image_converter).await?;
+  tokio::spawn(async move {
+    let args2 = args2;
+    let davinci2 = davinci2;
+    loop {
+      if let Err(err) = iteration(&args2, &davinci2).await {
+        error!("Error while executing loop: {}", err);
       }
     }
+  });
 
-    await_next_execution().await;
-  }
+  info!("Listening on http://{}...", args.listen_addr);
+
+  Server::bind(&args.listen_addr)
+    .serve(router.into_make_service())
+    .await?;
+
+  Ok(())
 }
 
-async fn send_notifications(
-  args: &Args,
-  davinci: &Davinci,
-  web_to_image_converter: &WebToImageConverter,
-) -> anyhow::Result<()> {
+async fn static_path(Path(path): Path<String>) -> impl IntoResponse {
+  let path = path.trim_start_matches('/');
+  let mime_type = match path.split('.').last() {
+    Some("css") => "text/css",
+    Some("woff2") => "font/woff2",
+    _ => "application/octet-stream",
+  };
+
+  match STATIC_DIR.get_file(path) {
+    None => Response::builder()
+      .status(StatusCode::NOT_FOUND)
+      .body(body::boxed(Empty::new()))
+      .unwrap(),
+    Some(file) => Response::builder()
+      .status(StatusCode::OK)
+      .header(
+        header::CONTENT_TYPE,
+        HeaderValue::from_str(mime_type).unwrap(),
+      )
+      .body(body::boxed(Full::from(file.contents())))
+      .unwrap(),
+  }
+}
+format_description!(iso_date, Date, "[year]-[month]-[day]");
+#[derive(Deserialize)]
+struct PlanPath {
+  #[serde(with = "iso_date")]
+  date: Date,
+}
+
+#[derive(Deserialize)]
+struct PlanQuery {
+  class: String,
+}
+
+async fn plan(
+  Extension(davinci): Extension<Arc<Davinci>>,
+  Path(PlanPath { date }): Path<PlanPath>,
+  Query(PlanQuery { class }): Query<PlanQuery>,
+) -> Result<impl IntoResponse, AppError> {
+  let split = class.split(',').collect::<Vec<&str>>();
+  Ok(Html(
+    davinci
+      .get_html(&date, split.as_slice())
+      .await?
+      .ok_or_else(|| PlanUnavailable)?,
+  ))
+}
+
+async fn iteration(args: &Args, davinci: &Davinci) -> anyhow::Result<()> {
+  match davinci.update().await {
+    Err(err) => error!("Error executing davinci update schedule: {}", err),
+    Ok(false) => {
+      let now = OffsetDateTime::now_utc();
+
+      if now.hour() == 15 && now.minute() <= 14 {
+        send_notifications(args, davinci).await?;
+        info!("Send 15 o'clock notification");
+      } else {
+        info!("Nothing changed");
+      }
+    }
+    Ok(true) => {
+      info!("Detected changes, sending notifications...");
+
+      send_notifications(args, davinci).await?;
+    }
+  }
+
+  await_next_execution().await;
+
+  Ok(())
+}
+
+async fn send_notifications(args: &Args, davinci: &Davinci) -> anyhow::Result<()> {
   let mut now = OffsetDateTime::now_utc();
 
   if now.hour() >= 15 {
@@ -100,30 +201,13 @@ async fn send_notifications(
   let table = table(day);
 
   let telegram = Telegram::new(&args.telegram_token)?;
-
-  let image_result = match davinci.data().await.as_ref() {
-    Some(data) => {
-      let mut images = Vec::new();
-
-      for url in &data.visited_urls {
-        let mut authenticated_url = url.clone();
-        authenticated_url
-          .set_username(args.username.as_str())
-          .unwrap();
-        authenticated_url
-          .set_password(Some(args.password.as_str()))
-          .unwrap();
-
-        images.push(
-          web_to_image_converter
-            .create_image(authenticated_url.as_str())
-            .await?,
-        )
-      }
-
-      Some(images)
+  let image_result = match render_images(&args.gecko_driver_url, &args.internal_url, davinci).await
+  {
+    Ok(resukt) => resukt,
+    Err(err) => {
+      error!("Error while rendering images: {}", err);
+      None
     }
-    None => None,
   };
 
   for id in &args.chat_ids {
@@ -157,6 +241,49 @@ async fn send_notifications(
   Ok(())
 }
 
+async fn render_images(
+  gecko_driver_url: &Url,
+  base_url: &Url,
+  davinci: &Davinci,
+) -> anyhow::Result<Option<Vec<Vec<u8>>>> {
+  let web_img_conv = WebToImageConverter::new(gecko_driver_url.as_str()).await?;
+
+  match davinci.data().await.as_ref() {
+    Some(data) => {
+      let mut images = Vec::new();
+
+      let dates = data
+        .rows
+        .iter()
+        .map(|row| row.date)
+        .collect::<HashSet<Date>>();
+      let mut dates = dates.into_iter().collect::<Vec<Date>>();
+      dates.sort();
+
+      for date in dates {
+        images.push(
+          web_img_conv
+            .create_image(
+              base_url
+                .join(&format!(
+                  "davinci/{}-{:0>2}-{:0>2}?class=IGD21,IGD 21",
+                  date.year(),
+                  date.month() as u8,
+                  date.day()
+                ))?
+                .as_str(),
+            )
+            .await?,
+        )
+      }
+
+      Ok(Some(images))
+    }
+
+    None => Ok(None),
+  }
+}
+
 async fn await_next_execution() {
   let now = OffsetDateTime::now_utc();
 
@@ -174,4 +301,32 @@ async fn await_next_execution() {
     now_sec_to_next_15_prec % 60
   );
   tokio::time::sleep_until(sleep_until).await;
+}
+
+enum AppError {
+  InternalServerError(anyhow::Error),
+  PlanUnavailable,
+}
+
+impl From<anyhow::Error> for AppError {
+  fn from(inner: anyhow::Error) -> Self {
+    AppError::InternalServerError(inner)
+  }
+}
+
+impl IntoResponse for AppError {
+  fn into_response(self) -> Response {
+    let (status, error_message) = match self {
+      AppError::InternalServerError(inner) => {
+        error!("stacktrace: {}", inner);
+        (StatusCode::INTERNAL_SERVER_ERROR, "something went wrong")
+      }
+      AppError::PlanUnavailable => (
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "substitution plan is currently unavailable",
+      ),
+    };
+
+    (status, error_message).into_response()
+  }
 }

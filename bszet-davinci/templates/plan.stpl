@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="de">
+    <head>
+        <meta charset="utf-8">
+        <meta content="width=device-width,initial-scale=1,minimum-scale=1" name="viewport">
+        <meta content="ie=edge" http-equiv="X-UA-Compatible">
+        <link rel="stylesheet" href="/static/inter.css">
+
+        <style>
+            body {
+                padding: 1rem;
+                margin: 0;
+                font-family: 'Inter', sans-serif;
+                font-size: 40px;
+            }
+
+            h1 {
+                padding: 0;
+                margin: 0 0 .5rem;
+            }
+
+            table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+
+            th {
+                background-color: #ee6723;
+            }
+
+            th {
+                color: #fff;
+            }
+
+            tr:nth-child(even) {
+                background-color: #f6f6f6;
+            }
+
+            tr:nth-child(odd) {
+                background-color: #e5e5e5;
+            }
+
+            tr.selected {
+                background-color: #ffa992;
+            }
+
+            tr.selected:nth-child(odd) {
+                background-color: #ff8163;
+            }
+
+            td, th {
+                padding: .1rem .3rem;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>
+            <%= format!("{} der {:0<2}. {} {}", date.weekday(), date.day(), date.month(), date.year()) %>
+        </h1>
+        <table>
+            <tr>
+                <th>Klasse</th>
+                <th>Std.</th>
+                <th>Fach</th>
+                <th>Raum</th>
+                <th>Lehrkraft</th>
+                <th>Art</th>
+                <th>Mitteilung</th>
+            </tr>
+
+            <% for (index, columns) in table.iter().enumerate() { %>
+                <tr <%- if classes.iter().any(|class| {
+                          for i in (0..=index).rev() {
+                            if !table[i][0].is_empty() {return table[i][0].contains(class)}
+                          }
+                          false
+                        }) {
+                          "class=\"selected\""
+                        } else {
+                          ""
+                        } %>>
+                    <% for cell in columns.iter() { %>
+                        <td><%= cell %></td>
+                    <% } %>
+                </tr>
+            <% } %>
+
+        </table>
+    </body>
+</html>
