@@ -5,9 +5,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::body::{Empty, Full};
-use axum::extract::{Path, Query};
+use axum::extract::Path;
 use axum::http::{header, HeaderValue, StatusCode};
-use axum::response::{Html, IntoResponse, Response};
+use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::{body, Extension, Router, Server};
 use clap::{arg, Parser};
@@ -22,6 +22,7 @@ use tracing_subscriber::fmt::writer::MakeWriterExt;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
+use crate::api::davinci::{plan, timetable};
 use bszet_davinci::Davinci;
 use bszet_image::WebToImageConverter;
 use bszet_notify::telegram::Telegram;
@@ -29,6 +30,7 @@ use bszet_notify::telegram::Telegram;
 use crate::ascii::table;
 use crate::AppError::PlanUnavailable;
 
+mod api;
 mod ascii;
 
 static STATIC_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/static");
@@ -109,6 +111,7 @@ async fn main() -> anyhow::Result<()> {
   let davinci3 = davinci.clone();
 
   let router = Router::new()
+    .route("/davinci/:date/:class", get(timetable))
     .route("/davinci/:date", get(plan))
     .route("/static/*path", get(static_path))
     .layer(Extension(davinci3));
@@ -158,31 +161,6 @@ async fn static_path(Path(path): Path<String>) -> impl IntoResponse {
       .body(body::boxed(Full::from(file.contents())))
       .unwrap(),
   }
-}
-format_description!(iso_date, Date, "[year]-[month]-[day]");
-#[derive(Deserialize)]
-struct PlanPath {
-  #[serde(with = "iso_date")]
-  date: Date,
-}
-
-#[derive(Deserialize)]
-struct PlanQuery {
-  class: String,
-}
-
-async fn plan(
-  Extension(davinci): Extension<Arc<Davinci>>,
-  Path(PlanPath { date }): Path<PlanPath>,
-  Query(PlanQuery { class }): Query<PlanQuery>,
-) -> Result<impl IntoResponse, AppError> {
-  let split = class.split(',').collect::<Vec<&str>>();
-  Ok(Html(
-    davinci
-      .get_html(&date, split.as_slice())
-      .await?
-      .ok_or(PlanUnavailable)?,
-  ))
 }
 
 async fn iteration(args: &Args, davinci: &Davinci) -> anyhow::Result<()> {
@@ -327,32 +305,4 @@ async fn await_next_execution() {
     now_sec_to_next_15_prec % 60,
   );
   tokio::time::sleep_until(sleep_until).await;
-}
-
-enum AppError {
-  InternalServerError(anyhow::Error),
-  PlanUnavailable,
-}
-
-impl From<anyhow::Error> for AppError {
-  fn from(inner: anyhow::Error) -> Self {
-    AppError::InternalServerError(inner)
-  }
-}
-
-impl IntoResponse for AppError {
-  fn into_response(self) -> Response {
-    let (status, error_message) = match self {
-      AppError::InternalServerError(inner) => {
-        error!("stacktrace: {}", inner);
-        (StatusCode::INTERNAL_SERVER_ERROR, "something went wrong")
-      }
-      AppError::PlanUnavailable => (
-        StatusCode::UNPROCESSABLE_ENTITY,
-        "substitution plan is currently unavailable",
-      ),
-    };
-
-    (status, error_message).into_response()
-  }
 }
