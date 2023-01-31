@@ -4,18 +4,18 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use axum::{body, Extension, Router, Server};
 use axum::body::{Empty, Full};
 use axum::extract::{Path, Query};
 use axum::http::{header, HeaderValue, StatusCode};
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::get;
+use axum::{body, Extension, Router, Server};
 use clap::{arg, Parser};
-use include_dir::{Dir, include_dir};
+use include_dir::{include_dir, Dir};
 use reqwest::Url;
 use serde::Deserialize;
-use time::{Date, OffsetDateTime, Weekday};
 use time::serde::format_description;
+use time::{Date, OffsetDateTime, Weekday};
 use tokio::time::Instant;
 use tracing::{error, info, Level};
 use tracing_subscriber::fmt::writer::MakeWriterExt;
@@ -26,8 +26,8 @@ use bszet_davinci::Davinci;
 use bszet_image::WebToImageConverter;
 use bszet_notify::telegram::Telegram;
 
-use crate::AppError::PlanUnavailable;
 use crate::ascii::table;
+use crate::AppError::PlanUnavailable;
 
 mod ascii;
 
@@ -229,7 +229,7 @@ async fn send_notifications(args: &Args, davinci: &Davinci) -> anyhow::Result<()
   let telegram = Telegram::new(&args.telegram_token)?;
   let image_result = match render_images(&args.gecko_driver_url, &args.internal_url, davinci).await
   {
-    Ok(resukt) => resukt,
+    Ok(result) => result,
     Err(err) => {
       error!("Error while rendering images: {}", err);
       None
@@ -324,7 +324,7 @@ async fn await_next_execution() {
   info!(
     "Next execution in {:0>2}:{:0>2} minutes",
     now_sec_to_next_15_prec / 60,
-    now_sec_to_next_15_prec % 60
+    now_sec_to_next_15_prec % 60,
   );
   tokio::time::sleep_until(sleep_until).await;
 }

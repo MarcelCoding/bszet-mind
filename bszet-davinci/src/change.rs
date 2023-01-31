@@ -1,7 +1,14 @@
 use anyhow::anyhow;
+use once_cell::sync::Lazy;
+use regex::Regex;
+use sentry::protocol::Event;
+use sentry::types::Uuid;
 
 use crate::timetable::{Lesson, Subject};
 use crate::REPLACEMENT_REGEX;
+
+static MOVED_FROM_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new("Von .+ verschoben").unwrap());
+static MOVED_TO_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new("Auf .+ verschoben").unwrap());
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Change {
@@ -33,13 +40,6 @@ pub enum Change {
     place: Replacement<String>,
     notice: Option<String>,
   },
-  ClassIsMissing {
-    lesson: u8,
-    subject: Subject,
-    teachers: Vec<String>,
-    place: String,
-    notice: Option<String>,
-  },
   Other {
     lesson: u8,
     value: String,
@@ -66,16 +66,18 @@ impl Change {
     notice: Option<String>,
   ) -> anyhow::Result<Self> {
     Ok(match value {
-      "Fällt aus" => Self::Cancel {
-        lesson,
-        subject: subject.into(),
-        place,
-        teachers: teacher
-          .split(',')
-          .map(|s| s.trim().to_string())
-          .collect::<Vec<String>>(),
-        notice,
-      },
+      toc if (["Fällt aus", "Klasse fehlt"].contains(&toc) || MOVED_TO_REGEX.is_match(toc)) => {
+        Self::Cancel {
+          lesson,
+          subject: subject.into(),
+          place,
+          teachers: teacher
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .collect::<Vec<String>>(),
+          notice,
+        }
+      }
       "Raumänderung" => Self::PlaceChange {
         lesson,
         subject: subject.into(),
@@ -96,34 +98,37 @@ impl Change {
           .collect::<Vec<String>>(),
         notice,
       },
-      "Vertreten" => Self::Replacement {
+      toc if toc == "Vertreten" || MOVED_FROM_REGEX.is_match(toc) => Self::Replacement {
         lesson,
         subject: subject.try_into()?,
         place: place.as_str().try_into()?,
         teachers: teacher.try_into()?,
         notice,
       },
-      "Klasse fehlt" => Self::ClassIsMissing {
-        lesson,
-        subject: subject.into(),
-        place,
-        teachers: teacher
-          .split(',')
-          .map(|s| s.trim().to_string())
-          .collect::<Vec<String>>(),
-        notice,
-      },
-      value => Self::Other {
-        lesson,
-        value: value.to_string(),
-        subject: subject.into(),
-        place,
-        teachers: teacher
-          .split(',')
-          .map(|s| s.trim().to_string())
-          .collect::<Vec<String>>(),
-        notice,
-      },
+      toc => {
+        let change = Self::Other {
+          lesson,
+          value: toc.to_string(),
+          subject: subject.into(),
+          place,
+          teachers: teacher
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .collect::<Vec<String>>(),
+          notice,
+        };
+
+        let uuid = Uuid::new_v4();
+        let event = Event {
+          event_id: uuid,
+          message: Some(format!("Unkown type of change: {:?}", change)),
+          level: sentry::protocol::Level::Info,
+          ..Default::default()
+        };
+        sentry::capture_event(event);
+
+        change
+      }
     })
   }
 
@@ -131,12 +136,6 @@ impl Change {
   pub(crate) fn apply(&self, lessons: &mut Vec<Lesson>) -> anyhow::Result<bool> {
     Ok(match self {
       Change::Cancel {
-        lesson,
-        subject,
-        notice,
-        ..
-      }
-      | Change::ClassIsMissing {
         lesson,
         subject,
         notice,
@@ -214,7 +213,6 @@ impl Change {
       Change::PlaceChange { lesson, .. } => *lesson,
       Change::Addition { lesson, .. } => *lesson,
       Change::Replacement { lesson, .. } => *lesson,
-      Change::ClassIsMissing { lesson, .. } => *lesson,
       Change::Other { lesson, .. } => *lesson,
     }
   }
