@@ -4,18 +4,18 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use axum::{body, Extension, Router, Server};
 use axum::body::{Empty, Full};
 use axum::extract::{Path, Query};
 use axum::http::{header, HeaderValue, StatusCode};
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::get;
+use axum::{body, Extension, Router, Server};
 use clap::{arg, Parser};
-use include_dir::{Dir, include_dir};
+use include_dir::{include_dir, Dir};
 use reqwest::Url;
 use serde::Deserialize;
-use time::{Date, OffsetDateTime, Weekday};
 use time::serde::format_description;
+use time::{Date, OffsetDateTime, Weekday};
 use tokio::time::Instant;
 use tracing::{error, info};
 use tracing_subscriber::layer::SubscriberExt;
@@ -25,8 +25,8 @@ use bszet_davinci::Davinci;
 use bszet_image::WebToImageConverter;
 use bszet_notify::telegram::Telegram;
 
-use crate::AppError::PlanUnavailable;
 use crate::ascii::table;
+use crate::AppError::PlanUnavailable;
 
 mod ascii;
 
@@ -36,10 +36,10 @@ static STATIC_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/static");
 #[command(author, version, about, long_about)]
 struct Args {
   #[arg(
-  long,
-  short,
-  env = "BSZET_MIND_ENTRYPOINT",
-  default_value = "https://geschuetzt.bszet.de/s-lk-vw/Vertretungsplaene/V_PlanBGy/V_DC_001.html"
+    long,
+    short,
+    env = "BSZET_MIND_ENTRYPOINT",
+    default_value = "https://geschuetzt.bszet.de/s-lk-vw/Vertretungsplaene/V_PlanBGy/V_DC_001.html"
   )]
   entrypoint: Url,
   #[arg(long, short, env = "BSZET_MIND_USERNAME")]
@@ -51,24 +51,24 @@ struct Args {
   #[arg(long, short, env = "BSZET_MIND_CHAT_IDS", value_delimiter = ',')]
   chat_ids: Vec<i64>,
   #[arg(
-  long,
-  short,
-  env = "BSZET_MIND_GECKO_DRIVER_URL",
-  default_value = "http://localhost:4444"
+    long,
+    short,
+    env = "BSZET_MIND_GECKO_DRIVER_URL",
+    default_value = "http://localhost:4444"
   )]
   gecko_driver_url: Url,
   #[arg(
-  long,
-  short,
-  env = "BSZET_MIND_LISTEN_ADDR",
-  default_value = "127.0.0.1:8080"
+    long,
+    short,
+    env = "BSZET_MIND_LISTEN_ADDR",
+    default_value = "127.0.0.1:8080"
   )]
   listen_addr: SocketAddr,
   #[arg(
-  long,
-  short,
-  env = "BSZET_MIND_INTERNAL_URL",
-  default_value = "http://127.0.0.1:8080"
+    long,
+    short,
+    env = "BSZET_MIND_INTERNAL_URL",
+    default_value = "http://127.0.0.1:8080"
   )]
   internal_url: Url,
   #[arg(long, short, env = "BSZET_MIND_SENTRY_DSN")]
