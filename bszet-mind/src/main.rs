@@ -1,11 +1,13 @@
 use std::collections::HashSet;
 use std::fmt::Write;
+use std::iter::once;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
 use axum::body::{Empty, Full};
 use axum::extract::Path;
+use axum::http::header::AUTHORIZATION;
 use axum::http::{header, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
@@ -14,19 +16,21 @@ use clap::{arg, Parser};
 use include_dir::{include_dir, Dir};
 use reqwest::Url;
 use serde::Deserialize;
-use time::serde::format_description;
 use time::{Date, OffsetDateTime, Weekday};
 use tokio::time::Instant;
+use tower_http::auth::RequireAuthorizationLayer;
+use tower_http::sensitive_headers::SetSensitiveRequestHeadersLayer;
+use tower_http::trace::TraceLayer;
 use tracing::{error, info, Level};
 use tracing_subscriber::fmt::writer::MakeWriterExt;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
-use crate::api::davinci::{plan, timetable};
 use bszet_davinci::Davinci;
 use bszet_image::WebToImageConverter;
 use bszet_notify::telegram::Telegram;
 
+use crate::api::davinci::{plan, timetable};
 use crate::ascii::table;
 use crate::AppError::PlanUnavailable;
 
@@ -76,6 +80,8 @@ struct Args {
   internal_url: Url,
   #[arg(long, short, env = "BSZET_MIND_SENTRY_DSN")]
   sentry_dsn: Url,
+  #[arg(long, env = "BSZET_MIND_API_TOKEN")]
+  api_token: String,
 }
 
 #[tokio::main]
@@ -114,7 +120,10 @@ async fn main() -> anyhow::Result<()> {
     .route("/davinci/:date/:class", get(timetable))
     .route("/davinci/:date", get(plan))
     .route("/static/*path", get(static_path))
-    .layer(Extension(davinci3));
+    .layer(Extension(davinci3))
+    .layer(RequireAuthorizationLayer::bearer(&args.api_token))
+    .layer(SetSensitiveRequestHeadersLayer::new(once(AUTHORIZATION)))
+    .layer(TraceLayer::new_for_http());
 
   tokio::spawn(async move {
     let args2 = args2;

@@ -3,12 +3,12 @@ use crate::api::AppError::PlanUnavailable;
 use axum::extract::{Path, Query};
 use axum::response::{Html, IntoResponse};
 use axum::{Extension, Json};
+use bszet_davinci::timetable::Subject;
 use bszet_davinci::Davinci;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use time::serde::format_description;
 use time::Date;
-use bszet_davinci::timetable::Subject;
 
 format_description!(iso_date, Date, "[year]-[month]-[day]");
 
@@ -33,7 +33,7 @@ pub(crate) async fn plan(
     davinci
       .get_html(&date, split.as_slice())
       .await?
-      .ok_or_else(|| PlanUnavailable)?,
+      .ok_or(PlanUnavailable)?,
   ))
 }
 
@@ -59,8 +59,12 @@ pub(crate) async fn timetable(
   Path(TimetablePath { date, .. }): Path<TimetablePath>,
 ) -> Result<impl IntoResponse, AppError> {
   Ok(Json(
-    davinci.get_applied_timetable(date).await.0.into_iter().map(
-      |lesson| {
+    davinci
+      .get_applied_timetable(date)
+      .await
+      .0
+      .into_iter()
+      .map(|lesson| {
         let (subject, cancel) = match lesson.subject {
           Subject::Cancel(subject) => (*subject, true),
           subject => (subject, false),
@@ -74,7 +78,7 @@ pub(crate) async fn timetable(
           notice: lesson.notice,
           cancel,
         }
-      }
-    ).collect::<Vec<Lesson>>()
+      })
+      .collect::<Vec<Lesson>>(),
   ))
 }
