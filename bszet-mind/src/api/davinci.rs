@@ -23,7 +23,7 @@ pub(crate) struct PlanQuery {
   class: String,
 }
 
-pub(crate) async fn plan(
+pub(crate) async fn html_plan(
   Extension(davinci): Extension<Arc<Davinci>>,
   Path(PlanPath { date }): Path<PlanPath>,
   Query(PlanQuery { class }): Query<PlanQuery>,
