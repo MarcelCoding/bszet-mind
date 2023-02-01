@@ -19,7 +19,9 @@ FROM debian:bullseye-slim AS runtime
 
 ENV USER=bszet-mind
 ENV UID=10001
+
 ENV BSZET_MIND_LISTEN_ADDR=0.0.0.0:8080
+ENV BSZET_MIND_INTERNAL_LISTEN_ADDR=0.0.0.0:8081
 
 RUN adduser \
     --disabled-password \
