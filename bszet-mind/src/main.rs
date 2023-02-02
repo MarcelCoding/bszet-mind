@@ -76,7 +76,7 @@ struct Args {
     env = "BSZET_MIND_INTERNAL_LISTEN_ADDR",
     default_value = "127.0.0.1:8081"
   )]
-  intrnal_listen_addr: SocketAddr,
+  internal_listen_addr: SocketAddr,
   #[arg(
     long,
     env = "BSZET_MIND_INTERNAL_URL",
@@ -157,14 +157,14 @@ async fn real_main(args: Args) -> anyhow::Result<()> {
   info!("Listening on http://{}...", args.listen_addr);
   info!(
     "Listening on http://{}... (internal)",
-    args.intrnal_listen_addr
+    args.internal_listen_addr
   );
 
   select! {
     public = Server::bind(&args.listen_addr).serve(router.into_make_service()) => {
       public?;
     }
-    internal = Server::bind(&args.intrnal_listen_addr).serve(internal_router.into_make_service()) => {
+    internal = Server::bind(&args.internal_listen_addr).serve(internal_router.into_make_service()) => {
       internal?;
     }
   }
