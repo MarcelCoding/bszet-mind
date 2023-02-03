@@ -67,7 +67,7 @@ impl From<&str> for Subject {
       "ETH" => Self::Ethics,
       "R-B" => Self::Russian,
       "CH" => Self::Chemistry,
-      "PH" => Self::Physics,
+      "PHY" => Self::Physics,
       "SP" => Self::PhysicalEducation,
       "LIT" => Self::Literature,
 
