@@ -132,8 +132,6 @@ async fn real_main(args: Args) -> anyhow::Result<()> {
 
   let router = Router::new()
     .route("/davinci/:date/:class", get(timetable))
-    .route("/davinci/:date", get(html_plan))
-    .route("/static/*path", get(static_path))
     .layer(Extension(davinci2.clone()))
     .layer(RequireAuthorizationLayer::bearer(&args.api_token))
     .layer(SetSensitiveRequestHeadersLayer::new(once(AUTHORIZATION)))
@@ -141,6 +139,7 @@ async fn real_main(args: Args) -> anyhow::Result<()> {
 
   let internal_router = Router::new()
     .route("/davinci/:date", get(html_plan))
+    .route("/static/*path", get(static_path))
     .layer(Extension(davinci2.clone()))
     .layer(TraceLayer::new_for_http());
 
