@@ -86,36 +86,25 @@ impl Davinci {
     let mut relevant_rows = Vec::new();
 
     if let Some(data) = self.data.read().await.as_ref() {
+      // first ally all cancel
+      // sometimes there is a cancel and than a replacement for the canceled lesson
       for row in &data.rows {
-        if row.date != date
-          || !(row.class.contains(&"IGD21".to_string())
-            || row.class.contains(&"IGD 21".to_string()))
-        {
+        if let Change::Cancel { .. } = row.change {
+          if apply_change(&date, &mut day, &mut relevant_rows, row) {
+            continue;
+          }
+        }
+      }
+
+      // alter that apply all other changes
+      for row in &data.rows {
+        if let Change::Cancel { .. } = row.change {
           continue;
         }
 
-        match row.change.apply(&mut day) {
-          Ok(applied) => {
-            if applied {
-              continue;
-            }
-          }
-          Err(err) => error!("Could not apply row: {}", err),
+        if apply_change(&date, &mut day, &mut relevant_rows, row) {
+          continue;
         }
-
-        {
-          let uuid = Uuid::new_v4();
-          let event = Event {
-            event_id: uuid,
-            message: Some(format!("Unable to apply change: {row:?}")),
-            level: sentry::protocol::Level::Warning,
-            ..Default::default()
-          };
-
-          sentry::capture_event(event);
-        }
-
-        relevant_rows.push(row.clone());
       }
     }
 
@@ -254,3 +243,41 @@ impl PartialEq<Self> for Row {
 }
 
 impl Eq for Row {}
+
+fn apply_change(
+  date: &Date,
+  mut day: &mut Vec<Lesson>,
+  relevant_rows: &mut Vec<Row>,
+  row: &Row,
+) -> bool {
+  if &row.date != date
+    || !(row.class.contains(&"IGD21".to_string()) || row.class.contains(&"IGD 21".to_string()))
+  {
+    return true;
+  }
+
+  match row.change.apply(&mut day) {
+    Ok(applied) => {
+      if applied {
+        return true;
+      }
+    }
+    Err(err) => error!("Could not apply row: {}", err),
+  }
+
+  {
+    let uuid = Uuid::new_v4();
+    let event = Event {
+      event_id: uuid,
+      message: Some(format!("Unable to apply change: {row:?}")),
+      level: sentry::protocol::Level::Warning,
+      ..Default::default()
+    };
+
+    sentry::capture_event(event);
+  }
+
+  relevant_rows.push(row.clone());
+
+  false
+}

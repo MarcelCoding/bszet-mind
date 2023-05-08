@@ -141,7 +141,7 @@ impl Change {
         notice,
         ..
       } => {
-        match find_lesson(lessons, lesson, Some(subject))? {
+        match find_lesson(lessons, lesson, Some(subject), false)? {
           None => false,
           Some(lesson) => {
             // TODO: place, teachers
@@ -158,7 +158,7 @@ impl Change {
         notice,
         ..
       } => {
-        match find_lesson(lessons, lesson, Some(subject))? {
+        match find_lesson(lessons, lesson, Some(subject), false)? {
           None => false,
           Some(lesson) => {
             // TODO: teachers, place.from
@@ -192,7 +192,7 @@ impl Change {
         notice,
         ..
       } => {
-        match find_lesson(lessons, lesson, subject.from.as_ref())? {
+        match find_lesson(lessons, lesson, subject.from.as_ref(), true)? {
           None => false,
           Some(lesson) => {
             // TODO: teachers, place.from
@@ -222,6 +222,7 @@ fn find_lesson<'a>(
   lessons: &'a mut [Lesson],
   lesson: &u8,
   subject: Option<&Subject>,
+  allow_cancel: bool,
 ) -> anyhow::Result<Option<&'a mut Lesson>> {
   let lessons = lessons
     .iter_mut()
@@ -236,11 +237,19 @@ fn find_lesson<'a>(
         Err(anyhow!("Found multiple subjects without original value to clearly identify lesson. less: {}, subjs: {:?}",lesson , lessons))
       }
     }
-    Some(subject) => Ok(
-      lessons
-        .into_iter()
-        .find(|lesson| &lesson.subject == subject),
-    ),
+    Some(subject) => Ok(lessons.into_iter().find(|lesson| {
+      if &lesson.subject == subject {
+        true
+      } else if allow_cancel {
+        if let Subject::Cancel(inner) = &lesson.subject {
+          inner.as_ref() == subject
+        } else {
+          false
+        }
+      } else {
+        false
+      }
+    })),
   }
 }
 
