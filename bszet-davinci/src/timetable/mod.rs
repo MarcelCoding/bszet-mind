@@ -41,9 +41,11 @@ pub enum Subject {
   Literature,
 
   Lf6_7_9,
+  Lf9_12,
   Lf8,
   Lf10,
   Lf11,
+  Lf13
 
   FaeVerb,
   None,
@@ -74,13 +76,17 @@ impl From<&str> for Subject {
       "LIT" => Self::Literature,
 
       "LF 6+7+9" => Self::Lf6_7_9,
-      "IS-GP" => Self::Lf6_7_9,
+      "LF 9+12" => Self::Lf9_12,
+      "IS-GP" => Self::Lf9_12,
       "LF8D_I1" => Self::Lf8,
       "LF8D_I2" => Self::Lf8,
       "LF10D_I1" => Self::Lf10,
       "LF10D_I2" => Self::Lf10,
+      "LF11D" => Self::Lf11,
       "LF11D_I1" => Self::Lf11,
       "LF11D_I2" => Self::Lf11,
+      "LF13D_I1" => Self::Lf13,
+      "LF13D_I2" => Self::Lf13,
 
       "_fä.verb." => Self::FaeVerb,
       "" => Self::None,
@@ -122,9 +128,11 @@ impl Display for Subject {
       Self::PhysicalEducation => f.write_str("Sp"),
       Self::Literature => f.write_str("Lit"),
       Self::Lf6_7_9 => f.write_str("LF 6+7+9"),
+      Self::Lf9_12 => f.write_str("LF 9+12"),
       Self::Lf8 => f.write_str("LF 8"),
       Self::Lf10 => f.write_str("LF 10"),
       Self::Lf11 => f.write_str("LF 11"),
+      Self::Lf13 => f.write_str("LF 13"),
       Self::FaeVerb => f.write_str("Fä-Verb"),
       Self::None => f.write_str("None"),
       Self::Cancel(inner) => {
