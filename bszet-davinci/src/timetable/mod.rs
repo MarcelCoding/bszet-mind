@@ -45,7 +45,7 @@ pub enum Subject {
   Lf8,
   Lf10,
   Lf11,
-  Lf13
+  Lf13,
 
   FaeVerb,
   None,
