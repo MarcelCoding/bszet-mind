@@ -4,8 +4,9 @@ use once_cell::sync::Lazy;
 use time::Weekday::{Friday, Monday, Thursday, Tuesday, Wednesday};
 
 use crate::timetable::Subject::{
-  Art, Chemistry, EnglishAdvanced, EnglishBasic, Ethics, French, GermanBasic, History, Lf10, Lf11,
-  Lf13, Lf9_12, Literature, MathAdvanced, MathBasic, PhysicalEducation, Physics, Russian,
+  Art, Chemistry, EnglishAdvanced, EnglishBasic, Ethics, French, GermanBasic, History, Lf10__1,
+  Lf10__2, Lf11, Lf11__1, Lf11__2, Lf13__1, Lf13__2, Lf9_12, Literature, MathAdvanced, MathBasic,
+  PhysicalEducation, Physics, Russian,
 };
 use crate::timetable::{Lesson, Timetable};
 
@@ -31,8 +32,8 @@ pub static IGD21: Lazy<Timetable> = Lazy::new(|| {
         Lesson::new(1, None, MathBasic, "B05"),
         Lesson::new(1, None, EnglishBasic, "B104"),
         Lesson::new(2, None, GermanBasic, "B6"),
-        Lesson::new(3, None, Lf13, "B5"), // group 1
-        Lesson::new(3, None, Lf11, "B3"), // group 2
+        Lesson::new(3, None, Lf13__1, "B5"),
+        Lesson::new(3, None, Lf11__2, "B3"),
         Lesson::new(4, None, EnglishAdvanced, "A102"),
         Lesson::new(4, None, MathAdvanced, "B11"),
       ],
@@ -54,9 +55,9 @@ pub static IGD21: Lazy<Timetable> = Lazy::new(|| {
       vec![
         Lesson::new(1, None, History, "B4"),
         Lesson::new(2, None, Lf9_12, "B8"),
-        Lesson::new(3, None, PhysicalEducation, "117.GS"),
-        Lesson::new(4, None, Lf10, "B405"), // group 1
-        Lesson::new(4, None, Lf13, "A103"), // group 2
+        Lesson::new(3, None, PhysicalEducation, "117.GS Neu"),
+        Lesson::new(4, None, Lf10__1, "B405"),
+        Lesson::new(4, None, Lf13__2, "A103"),
       ],
     ),
     (
@@ -65,10 +66,10 @@ pub static IGD21: Lazy<Timetable> = Lazy::new(|| {
         Lesson::new(1, None, Physics, "B112"),
         Lesson::new(2, None, French, "A102"),
         Lesson::new(2, None, Russian, "B4"),
-        Lesson::new(3, None, Lf13, "A103"), // group 1
-        Lesson::new(3, None, Lf10, "B405"), // group 2
-        Lesson::new(4, None, Lf11, "B5"),   // group 1
-        Lesson::new(4, None, Lf13, "A103"), // group 2
+        Lesson::new(3, None, Lf13__1, "A103"),
+        Lesson::new(3, None, Lf10__2, "B405"),
+        Lesson::new(4, None, Lf11__1, "B5"),
+        Lesson::new(4, None, Lf13__2, "A103"),
       ],
     ),
   ])
