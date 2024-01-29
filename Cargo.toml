@@ -1,9 +1,10 @@
 [workspace]
+resolver = "2"
 members = [
-    "bszet-davinci",
-    "bszet-mind",
-    "bszet-notify",
-    "bszet-image",
+  "bszet-davinci",
+  "bszet-mind",
+  "bszet-notify",
+  "bszet-image",
 ]
 
 [profile.release]

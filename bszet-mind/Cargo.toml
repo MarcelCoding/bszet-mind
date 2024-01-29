@@ -5,20 +5,21 @@ version = "0.0.0-git"
 edition = "2021"
 
 [dependencies]
-tower-http = { version = "0.4", features = ["sensitive-headers", "trace", "validate-request", "auth"], default-features = false }
-tokio = { version = "1.29", default-features = false, features = ["macros", "rt-multi-thread", "signal"] }
-axum = { version = "0.6", features = ["tokio", "query", "json"], default-features = false }
+tower-http = { version = "0.5", features = ["sensitive-headers", "trace", "validate-request", "auth"], default-features = false }
+tokio = { version = "1.35", default-features = false, features = ["macros", "rt-multi-thread", "signal"] }
+axum = { version = "0.7", features = ["tokio", "query", "json", "http1"], default-features = false }
 tracing-subscriber = { version = "0.3", features = ["fmt"] }
 reqwest = { version = "0.11", default-features = false }
-clap = { version = "4.3", features = ["derive", "env"] }
+clap = { version = "4.4", features = ["derive", "env"] }
 serde = { version = "1.0", features = ["derive"] }
 time = { version = "0.3", features = ["serde"] }
 bszet-davinci = { path = "../bszet-davinci" }
 bszet-notify = { path = "../bszet-notify" }
 bszet-image = { path = "../bszet-image" }
+http-body-util = "0.1"
 include_dir = "0.7"
 tracing = "0.1"
 anyhow = "1.0"
 
-sentry = { version = "0.31", features = ["backtrace", "contexts", "panic", "anyhow", "reqwest", "rustls", "tower"], default-features = false }
-sentry-tracing = "0.31"
+sentry = { version = "0.32", features = ["backtrace", "contexts", "panic", "anyhow", "reqwest", "rustls", "tower"], default-features = false }
+sentry-tracing = "0.32"

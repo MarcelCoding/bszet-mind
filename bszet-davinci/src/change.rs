@@ -66,7 +66,10 @@ impl Change {
     notice: Option<String>,
   ) -> anyhow::Result<Self> {
     Ok(match value {
-      toc if (["Fällt aus", "Klasse fehlt"].contains(&toc) || MOVED_TO_REGEX.is_match(toc)) => {
+      toc
+        if ["Fällt aus", "Klasse fehlt", "Kurs fehlt"].contains(&toc)
+          || MOVED_TO_REGEX.is_match(toc) =>
+      {
         Self::Cancel {
           lesson,
           subject: subject.into(),

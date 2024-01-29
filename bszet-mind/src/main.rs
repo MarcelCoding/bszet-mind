@@ -1,23 +1,25 @@
 use std::borrow::Cow;
 use std::collections::HashSet;
 use std::fmt::Write;
+use std::future::IntoFuture;
 use std::iter::once;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::anyhow;
-use axum::body::{Empty, Full};
 use axum::extract::Path;
 use axum::http::header::AUTHORIZATION;
 use axum::http::{header, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
-use axum::{body, Extension, Router, Server};
+use axum::{Extension, Router};
 use clap::{arg, Parser};
+use http_body_util::{BodyExt, Empty, Full};
 use include_dir::{include_dir, Dir};
 use reqwest::Url;
 use time::{Date, OffsetDateTime, Weekday};
+use tokio::net::TcpListener;
 use tokio::select;
 use tokio::time::Instant;
 use tower_http::sensitive_headers::SetSensitiveRequestHeadersLayer;
@@ -156,7 +158,6 @@ async fn real_main(args: Args) -> anyhow::Result<()> {
     .layer(TraceLayer::new_for_http());
 
   tokio::spawn(async move {
-    let args2 = args2;
     let davinci2 = davinci2;
     loop {
       if let Err(err) = iteration(&args2, &davinci2).await {
@@ -166,16 +167,19 @@ async fn real_main(args: Args) -> anyhow::Result<()> {
   });
 
   info!("Listening on http://{}...", args.listen_addr);
+  let listener = TcpListener::bind(args.listen_addr).await?;
+
   info!(
     "Listening on http://{}... (internal)",
     args.internal_listen_addr
   );
+  let internal_listener = TcpListener::bind(args.internal_listen_addr).await?;
 
   select! {
-    public = Server::bind(&args.listen_addr).serve(router.into_make_service()) => {
+    public = axum::serve(listener, router).into_future() => {
       public?;
     }
-    internal = Server::bind(&args.internal_listen_addr).serve(internal_router.into_make_service()) => {
+    internal = axum::serve(internal_listener, internal_router).into_future() => {
       internal?;
     }
   }
@@ -194,7 +198,7 @@ async fn static_path(Path(path): Path<String>) -> impl IntoResponse {
   match STATIC_DIR.get_file(path) {
     None => Response::builder()
       .status(StatusCode::NOT_FOUND)
-      .body(body::boxed(Empty::new()))
+      .body(Empty::new().boxed())
       .unwrap(),
     Some(file) => Response::builder()
       .status(StatusCode::OK)
@@ -202,7 +206,7 @@ async fn static_path(Path(path): Path<String>) -> impl IntoResponse {
         header::CONTENT_TYPE,
         HeaderValue::from_str(mime_type).unwrap(),
       )
-      .body(body::boxed(Full::from(file.contents())))
+      .body(Full::from(file.contents()).boxed())
       .unwrap(),
   }
 }
