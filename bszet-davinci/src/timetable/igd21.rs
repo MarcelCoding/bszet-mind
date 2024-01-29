@@ -32,7 +32,7 @@ pub static IGD21: Lazy<Timetable> = Lazy::new(|| {
         Lesson::new(1, None, MathBasic, "B05"),
         Lesson::new(1, None, EnglishBasic, "B104"),
         Lesson::new(2, None, GermanBasic, "B6"),
-        Lesson::new(3, None, Lf13__1, "B5"),
+        Lesson::new(3, None, Lf13__1, "A103"),
         Lesson::new(3, None, Lf11__2, "B3"),
         Lesson::new(4, None, EnglishAdvanced, "A102"),
         Lesson::new(4, None, MathAdvanced, "B11"),
