@@ -63,10 +63,16 @@ in
         wantedBy = [ "multi-user.target" ];
         after = [ "network.target" ];
 
+        environment = {
+          MOZ_HEADLESS = "1";
+          HOME = "/var/cache/bszet-mind-geckodriver";
+        };
+
         serviceConfig = {
           ExecStart = "${pkgs.geckodriver}/bin/geckodriver --binary=${pkgs.firefox}/bin/firefox --host ${if (lib.hasInfix ":" cfg.internalListen.addr) then "[${cfg.internalListen.addr}]" else cfg.internalListen.addr} --allow-hosts localhost";
           DynamicUser = true;
           User = "bszet-mind-geckodriver";
+          CacheDirectory = "bszet-mind-geckodriver";
         };
       };
 
