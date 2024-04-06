@@ -4,8 +4,8 @@ version = "0.0.0-git"
 edition = "2021"
 
 [dependencies]
+hyper = { version = "0.14", features = ["client", "tcp"], default-features = false }
 fantoccini = { version = "0.20.0-rc.7", default-features = false }
-hyper = { version = "0.14", features = ["client"], default-features = false }
 anyhow = "1.0"
 
 [dev-dependencies]

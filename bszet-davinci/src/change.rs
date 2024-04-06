@@ -1,8 +1,6 @@
 use anyhow::anyhow;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use sentry::protocol::Event;
-use sentry::types::Uuid;
 
 use crate::timetable::{Lesson, Subject};
 use crate::REPLACEMENT_REGEX;
@@ -108,30 +106,17 @@ impl Change {
         teachers: teacher.try_into()?,
         notice: notice.unwrap_or(value.to_string()),
       },
-      toc => {
-        let change = Self::Other {
-          lesson,
-          value: toc.to_string(),
-          subject: subject.into(),
-          place,
-          teachers: teacher
-            .split(',')
-            .map(|s| s.trim().to_string())
-            .collect::<Vec<String>>(),
-          notice: notice.unwrap_or(value.to_string()),
-        };
-
-        let uuid = Uuid::new_v4();
-        let event = Event {
-          event_id: uuid,
-          message: Some(format!("Unkown type of change: {change:?}")),
-          level: sentry::protocol::Level::Info,
-          ..Default::default()
-        };
-        sentry::capture_event(event);
-
-        change
-      }
+      toc => Self::Other {
+        lesson,
+        value: toc.to_string(),
+        subject: subject.into(),
+        place,
+        teachers: teacher
+          .split(',')
+          .map(|s| s.trim().to_string())
+          .collect::<Vec<String>>(),
+        notice: notice.unwrap_or(value.to_string()),
+      },
     })
   }
 

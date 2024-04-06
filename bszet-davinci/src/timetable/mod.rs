@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter, Write};
 
-use sentry::protocol::Event;
-use sentry::types::Uuid;
 use time::Weekday;
 use tracing::warn;
 
@@ -96,21 +94,7 @@ impl From<&str> for Subject {
 
       "_fä.verb." => Self::FaeVerb,
       "" => Self::None,
-      other => {
-        {
-          let uuid = Uuid::new_v4();
-          let event = Event {
-            event_id: uuid,
-            message: Some(format!("Unknown subject: {other:?}")),
-            level: sentry::protocol::Level::Info,
-            ..Default::default()
-          };
-
-          sentry::capture_event(event);
-        }
-
-        Self::Other(other.to_string())
-      }
+      other => Self::Other(other.to_string()),
     }
   }
 }
@@ -153,19 +137,6 @@ impl Display for Subject {
       }
       Self::Other(other) => {
         warn!("Unknown subject: {}", other);
-
-        {
-          let uuid = Uuid::new_v4();
-          let event = Event {
-            event_id: uuid,
-            message: Some(format!("Tried to apply unknown subject: {other:?}")),
-            level: sentry::protocol::Level::Warning,
-            ..Default::default()
-          };
-
-          sentry::capture_event(event);
-        }
-
         f.write_str(other)
       }
     }

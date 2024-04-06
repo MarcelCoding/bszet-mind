@@ -1,22 +1,22 @@
-use std::borrow::Cow;
 use std::collections::HashSet;
 use std::fmt::Write;
 use std::future::IntoFuture;
 use std::iter::once;
 use std::net::SocketAddr;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::anyhow;
-use axum::{Extension, Router};
 use axum::extract::Path;
-use axum::http::{header, HeaderValue, StatusCode};
 use axum::http::header::AUTHORIZATION;
+use axum::http::{header, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
+use axum::{Extension, Router};
 use clap::{arg, Parser};
 use http_body_util::{BodyExt, Empty, Full};
-use include_dir::{Dir, include_dir};
+use include_dir::{include_dir, Dir};
 use reqwest::Url;
 use time::{Date, OffsetDateTime, Weekday};
 use tokio::net::TcpListener;
@@ -49,72 +49,108 @@ static STATIC_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/static");
 #[command(author, version, about, long_about)]
 struct Args {
   #[arg(
-  long,
-  short,
-  env = "BSZET_MIND_ENTRYPOINT",
-  default_value = "https://geschuetzt.bszet.de/s-lk-vw/Vertretungsplaene/V_PlanBGy/V_DC_001.html"
+    long,
+    short,
+    env = "BSZET_MIND_ENTRYPOINT",
+    default_value = "https://geschuetzt.bszet.de/s-lk-vw/Vertretungsplaene/V_PlanBGy/V_DC_001.html"
   )]
   entrypoint: Url,
-  #[arg(long, short, env = "BSZET_MIND_USERNAME")]
-  username: String,
-  #[arg(long, short, env = "BSZET_MIND_PASSWORD")]
-  password: String,
-  #[arg(long, short, env = "BSZET_MIND_TELEGRAM_TOKEN")]
-  telegram_token: String,
+  #[arg(
+    long,
+    short,
+    env = "BSZET_MIND_USERNAME",
+    conflicts_with = "username_file",
+    required_unless_present = "username_file"
+  )]
+  username: Option<String>,
+  #[arg(
+    long,
+    short,
+    env = "BSZET_MIND_USERNAME_FILE",
+    conflicts_with = "username",
+    required_unless_present = "username"
+  )]
+  username_file: Option<PathBuf>,
+  #[arg(
+    long,
+    short,
+    env = "BSZET_MIND_PASSWORD",
+    conflicts_with = "password_file",
+    required_unless_present = "password_file"
+  )]
+  password: Option<String>,
+  #[arg(
+    long,
+    short,
+    env = "BSZET_MIND_PASSWORD_FILE",
+    conflicts_with = "password",
+    required_unless_present = "password"
+  )]
+  password_file: Option<PathBuf>,
+  #[arg(
+    long,
+    short,
+    env = "BSZET_MIND_TELEGRAM_TOKEN",
+    conflicts_with = "telegram_token_file",
+    required_unless_present = "telegram_token_file"
+  )]
+  telegram_token: Option<String>,
+  #[arg(
+    long,
+    short,
+    env = "BSZET_MIND_TELEGRAM_TOKEN_FILE",
+    conflicts_with = "telegram_token",
+    required_unless_present = "telegram_token"
+  )]
+  telegram_token_file: Option<String>,
   #[arg(long, short, env = "BSZET_MIND_CHAT_IDS", value_delimiter = ',')]
   chat_ids: Vec<i64>,
   #[arg(
-  long,
-  short,
-  env = "BSZET_MIND_GECKO_DRIVER_URL",
-  default_value = "http://localhost:4444"
+    long,
+    short,
+    env = "BSZET_MIND_GECKO_DRIVER_URL",
+    default_value = "http://localhost:4444"
   )]
   gecko_driver_url: Url,
   #[arg(
-  long,
-  short,
-  env = "BSZET_MIND_LISTEN_ADDR",
-  default_value = "127.0.0.1:8080"
+    long,
+    short,
+    env = "BSZET_MIND_LISTEN_ADDR",
+    default_value = "127.0.0.1:8080"
   )]
   listen_addr: SocketAddr,
   #[arg(
-  long,
-  short,
-  env = "BSZET_MIND_INTERNAL_LISTEN_ADDR",
-  default_value = "127.0.0.1:8081"
+    long,
+    short,
+    env = "BSZET_MIND_INTERNAL_LISTEN_ADDR",
+    default_value = "127.0.0.1:8081"
   )]
   internal_listen_addr: SocketAddr,
   #[arg(
-  long,
-  env = "BSZET_MIND_INTERNAL_URL",
-  default_value = "http://127.0.0.1:8081"
+    long,
+    env = "BSZET_MIND_INTERNAL_URL",
+    default_value = "http://127.0.0.1:8081"
   )]
   internal_url: Url,
-  #[arg(long, short, env = "BSZET_MIND_SENTRY_DSN")]
-  sentry_dsn: Url,
-  #[arg(long, env = "BSZET_MIND_API_TOKEN")]
-  api_token: String,
-  #[arg(long, env = "BSZET_MIND_ENVIRONMENT")]
-  environment: Option<String>,
+  #[arg(
+    long,
+    env = "BSZET_MIND_API_TOKEN",
+    conflicts_with = "api_token_file",
+    required_unless_present = "api_token_file"
+  )]
+  api_token: Option<String>,
+  #[arg(
+    long,
+    env = "BSZET_MIND_API_TOKEN_FILE",
+    conflicts_with = "api_token",
+    required_unless_present = "api_token"
+  )]
+  api_token_file: Option<String>,
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
   let args = Args::parse();
-
-  let _guard = sentry::init((
-    args.sentry_dsn.as_str(),
-    sentry::ClientOptions {
-      release: sentry::release_name!(),
-      traces_sample_rate: 1.0,
-      environment: args
-        .environment
-        .as_ref()
-        .filter(|env| !env.is_empty())
-        .map(|env| Cow::from(env.to_string())),
-      ..Default::default()
-    },
-  ));
 
   tracing_subscriber::registry()
     .with(
@@ -122,32 +158,38 @@ async fn main() -> anyhow::Result<()> {
         .with_writer(std::io::stdout.with_max_level(Level::INFO))
         .compact(),
     )
-    .with(sentry_tracing::layer())
     .init();
 
-  let result = real_main(args).await;
-
-  if let Some(client) = sentry::Hub::current().client() {
-    client.close(Some(Duration::from_secs(2)));
-  }
-
-  result
-}
-
-async fn real_main(args: Args) -> anyhow::Result<()> {
-  let davinci = Arc::new(Davinci::new(
-    args.entrypoint.clone(),
-    args.username.clone(),
-    args.password.clone(),
-  ));
-
   let args2 = args.clone();
+
+  let password = match args.password {
+    None => tokio::fs::read_to_string(args.password_file.unwrap()).await?,
+    Some(password) => password,
+  };
+
+  let username = match args.username {
+    None => tokio::fs::read_to_string(args.username_file.unwrap()).await?,
+    Some(username) => username,
+  };
+
+  let api_token = match args.api_token {
+    None => tokio::fs::read_to_string(args.api_token_file.unwrap()).await?,
+    Some(api_token) => api_token,
+  };
+
+  let telegram_token = match args.telegram_token {
+    None => tokio::fs::read_to_string(args.telegram_token_file.unwrap()).await?,
+    Some(telegram_token) => telegram_token,
+  };
+
+  let davinci = Arc::new(Davinci::new(args.entrypoint.clone(), username, password));
+
   let davinci2 = davinci.clone();
 
   let router = Router::new()
     .route("/davinci/:date/:class", get(timetable))
     .layer(Extension(davinci2.clone()))
-    .layer(ValidateRequestHeaderLayer::bearer(&args.api_token))
+    .layer(ValidateRequestHeaderLayer::bearer(&api_token))
     .layer(SetSensitiveRequestHeadersLayer::new(once(AUTHORIZATION)))
     .layer(TraceLayer::new_for_http());
 
@@ -157,10 +199,12 @@ async fn real_main(args: Args) -> anyhow::Result<()> {
     .layer(Extension(davinci2.clone()))
     .layer(TraceLayer::new_for_http());
 
+  let telegram = Telegram::new(&telegram_token)?;
+
   tokio::spawn(async move {
     let davinci2 = davinci2;
     loop {
-      if let Err(err) = iteration(&args2, &davinci2).await {
+      if let Err(err) = iteration(&args2, &telegram, &davinci2).await {
         error!("Error while executing loop: {}", err);
       }
     }
@@ -211,7 +255,7 @@ async fn static_path(Path(path): Path<String>) -> impl IntoResponse {
   }
 }
 
-async fn iteration(args: &Args, davinci: &Davinci) -> anyhow::Result<()> {
+async fn iteration(args: &Args, telegram: &Telegram, davinci: &Davinci) -> anyhow::Result<()> {
   let result = match davinci.update().await {
     Err(err) => Err(anyhow!(format!(
       "Error executing davinci update schedule: {}",
@@ -222,7 +266,7 @@ async fn iteration(args: &Args, davinci: &Davinci) -> anyhow::Result<()> {
 
       if now.hour() == 15 && now.minute() <= 14 {
         info!("Send 15 o'clock notification");
-        send_notifications(args, davinci).await
+        send_notifications(args, telegram, davinci).await
       } else {
         info!("Nothing changed");
         Ok(())
@@ -231,7 +275,7 @@ async fn iteration(args: &Args, davinci: &Davinci) -> anyhow::Result<()> {
     Ok(true) => {
       info!("Detected changes, sending notifications...");
 
-      send_notifications(args, davinci).await
+      send_notifications(args, telegram, davinci).await
     }
   };
 
@@ -244,7 +288,11 @@ async fn iteration(args: &Args, davinci: &Davinci) -> anyhow::Result<()> {
   Ok(())
 }
 
-async fn send_notifications(args: &Args, davinci: &Davinci) -> anyhow::Result<()> {
+async fn send_notifications(
+  args: &Args,
+  telegram: &Telegram,
+  davinci: &Davinci,
+) -> anyhow::Result<()> {
   let mut now = OffsetDateTime::now_utc();
 
   if now.hour() >= 15 {
@@ -262,7 +310,6 @@ async fn send_notifications(args: &Args, davinci: &Davinci) -> anyhow::Result<()
 
   let table = table(day);
 
-  let telegram = Telegram::new(&args.telegram_token)?;
   let image_result = render_images(&args.gecko_driver_url, &args.internal_url, davinci)
     .await
     .unwrap_or_else(|err| {
