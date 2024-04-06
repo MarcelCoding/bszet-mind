@@ -8,15 +8,15 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::anyhow;
+use axum::{Extension, Router};
 use axum::extract::Path;
-use axum::http::header::AUTHORIZATION;
 use axum::http::{header, HeaderValue, StatusCode};
+use axum::http::header::AUTHORIZATION;
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
-use axum::{Extension, Router};
 use clap::{arg, Parser};
 use http_body_util::{BodyExt, Empty, Full};
-use include_dir::{include_dir, Dir};
+use include_dir::{Dir, include_dir};
 use reqwest::Url;
 use time::{Date, OffsetDateTime, Weekday};
 use tokio::net::TcpListener;
@@ -49,10 +49,10 @@ static STATIC_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/static");
 #[command(author, version, about, long_about)]
 struct Args {
   #[arg(
-    long,
-    short,
-    env = "BSZET_MIND_ENTRYPOINT",
-    default_value = "https://geschuetzt.bszet.de/s-lk-vw/Vertretungsplaene/V_PlanBGy/V_DC_001.html"
+  long,
+  short,
+  env = "BSZET_MIND_ENTRYPOINT",
+  default_value = "https://geschuetzt.bszet.de/s-lk-vw/Vertretungsplaene/V_PlanBGy/V_DC_001.html"
   )]
   entrypoint: Url,
   #[arg(long, short, env = "BSZET_MIND_USERNAME")]
@@ -64,30 +64,30 @@ struct Args {
   #[arg(long, short, env = "BSZET_MIND_CHAT_IDS", value_delimiter = ',')]
   chat_ids: Vec<i64>,
   #[arg(
-    long,
-    short,
-    env = "BSZET_MIND_GECKO_DRIVER_URL",
-    default_value = "http://localhost:4444"
+  long,
+  short,
+  env = "BSZET_MIND_GECKO_DRIVER_URL",
+  default_value = "http://localhost:4444"
   )]
   gecko_driver_url: Url,
   #[arg(
-    long,
-    short,
-    env = "BSZET_MIND_LISTEN_ADDR",
-    default_value = "127.0.0.1:8080"
+  long,
+  short,
+  env = "BSZET_MIND_LISTEN_ADDR",
+  default_value = "127.0.0.1:8080"
   )]
   listen_addr: SocketAddr,
   #[arg(
-    long,
-    short,
-    env = "BSZET_MIND_INTERNAL_LISTEN_ADDR",
-    default_value = "127.0.0.1:8081"
+  long,
+  short,
+  env = "BSZET_MIND_INTERNAL_LISTEN_ADDR",
+  default_value = "127.0.0.1:8081"
   )]
   internal_listen_addr: SocketAddr,
   #[arg(
-    long,
-    env = "BSZET_MIND_INTERNAL_URL",
-    default_value = "http://127.0.0.1:8081"
+  long,
+  env = "BSZET_MIND_INTERNAL_URL",
+  default_value = "http://127.0.0.1:8081"
   )]
   internal_url: Url,
   #[arg(long, short, env = "BSZET_MIND_SENTRY_DSN")]
@@ -263,14 +263,12 @@ async fn send_notifications(args: &Args, davinci: &Davinci) -> anyhow::Result<()
   let table = table(day);
 
   let telegram = Telegram::new(&args.telegram_token)?;
-  let image_result = match render_images(&args.gecko_driver_url, &args.internal_url, davinci).await
-  {
-    Ok(result) => result,
-    Err(err) => {
+  let image_result = render_images(&args.gecko_driver_url, &args.internal_url, davinci)
+    .await
+    .unwrap_or_else(|err| {
       error!("Error while rendering images: {}", err);
       None
-    }
-  };
+    });
 
   for id in &args.chat_ids {
     let age = last_modified
